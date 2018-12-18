@@ -1,0 +1,127 @@
+---
+title: "Segmentation"
+author: "Silvia Ventoruzzo"
+date: "18/12/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Explanation of dataset:
+- aisles and departments contain the respective id and name
+- products contain the id, name and corresponsing aisle and department
+- orders has one line pro order with the corresponding time, evaluation set and customer. "order_number" indicates the order for each customer in which the orders were placed
+- order_products_(prior and train) contain more detailed information of the order, that is the products ordered, in which order they were put into the basket and if the corresponding customer already ordered that specific product 
+
+```{r}
+orders_prior <- orders %>%
+  full_join(order_products_prior, by = "order_id") %>%
+  arrange(user_id, order_number)
+```
+
+All 1st orders have NA for "days_since_prior_order" and 0 for all products in "reordered"
+```{r}
+orders_prior %>%
+  filter(order_number == 1) %>%
+  group_by(days_since_prior_order) %>%
+  summarize(count = n())
+
+orders_prior %>%
+  filter(order_number == 1) %>%
+  group_by(reordered) %>%
+  summarize(count = n())
+```
+
+To which evaluation set do the orders for the different users belong?
+```{r}
+orders %>%
+  group_by(user_id, eval_set) %>%
+  summarize(count = n())
+```
+
+There is one department/aisle combination where both have value "missing". Since there is also one combination with "other", I will set this missing values so to say to the "other" category
+```{r}
+departments %>% filter(department == "missing" | department == "other")
+# 2: other
+# 21: missing
+
+aisles %>% filter(aisle == "missing" | aisle == "other")
+# 6: other
+# 100: missing
+
+# departments
+departments <- departments %>%
+  mutate(department_id = replace(department_id, department == "missing", 2),
+         department = fct_recode(department, "other" = "missing")) %>%
+  distinct(department_id, department)
+         
+# aisles
+aisles <- aisles %>%
+  mutate(aisle_id = replace(aisle_id, aisle == "missing", 6),
+         aisle = fct_recode(aisle, "other" = "missing")) %>%
+  distinct(aisle_id, aisle)
+
+# products
+products %>%
+  mutate(department_id = replace(department_id, 21, 2),
+         aisle_id = replace(aisle_id, 100, 6)) %>%
+  filter(aisle_id == "6") %>%
+  select(department_id)
+
+
+products %>%
+  filter(department_id == "1") %>%
+  dplyr::select(product_name, aisle_id, department_id)
+```
+
+Each aisles is assigned to one specific department
+```{r}
+products %>%
+  group_by(aisle_id) %>%
+  summarize(count_department_id = n_distinct(department_id)) %>%
+  summarize(aisle_department = sum(count_department_id))
+
+products %>%
+  filter(aisle_id == "6") %>%
+  distinct(department_id)
+
+
+aisles_departments <- products %>%
+  distinct(department_id, aisle_id) %>%
+  left_join(aisles, by = "aisle_id") %>%
+  left_join(departments, by = "department_id") %>%
+  arrange(department_id) 
+```
+
+
+Treemap aisles/department
+```{r}
+library(treemap)
+products %>%
+  group_by(department_id, aisle_id) %>%
+  summarize(count = n()) %>%
+  left_join(aisles, by = "aisle_id") %>%
+  left_join(departments, by = "department_id") %>%
+  treemap(dtf = .,
+          index = c("department", "aisle"),
+          vSize = "count",
+          type = "index",
+          palette = "Spectral",
+          title = "Orders for departments and aisles")
+
+products %>%
+  left_join(departments, by = "department_id") %>%
+  group_by(department) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+products %>%
+  left_join(aisles, by = "aisle_id") %>%
+  group_by(aisle) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+```
+
