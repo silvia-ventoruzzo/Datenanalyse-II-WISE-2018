@@ -51,6 +51,15 @@ aisles %>% filter(aisle == "missing" | aisle == "other")
 # 6: other
 # 100: missing
 
+# products
+products <- products %>%
+  left_join(aisles, by = "aisle_id") %>%
+  left_join(departments, by = "department_id") %>%
+  mutate(department_id = replace(department_id, department == "missing", 2),
+         department = replace(department, department == "missing", "other"),
+         aisle_id = replace(aisle_id, aisle == "missing", 6),
+         aisle = replace(aisle, aisle == "missing", "other"))
+
 # departments
 departments <- departments %>%
   mutate(department_id = replace(department_id, department == "missing", 2),
@@ -63,17 +72,6 @@ aisles <- aisles %>%
          aisle = fct_recode(aisle, "other" = "missing")) %>%
   distinct(aisle_id, aisle)
 
-# products
-products %>%
-  mutate(department_id = replace(department_id, 21, 2),
-         aisle_id = replace(aisle_id, 100, 6)) %>%
-  filter(aisle_id == "6") %>%
-  select(department_id)
-
-
-products %>%
-  filter(department_id == "1") %>%
-  dplyr::select(product_name, aisle_id, department_id)
 ```
 
 Each aisles is assigned to one specific department
@@ -83,11 +81,6 @@ products %>%
   summarize(count_department_id = n_distinct(department_id)) %>%
   summarize(aisle_department = sum(count_department_id))
 
-products %>%
-  filter(aisle_id == "6") %>%
-  distinct(department_id)
-
-
 aisles_departments <- products %>%
   distinct(department_id, aisle_id) %>%
   left_join(aisles, by = "aisle_id") %>%
@@ -95,33 +88,82 @@ aisles_departments <- products %>%
   arrange(department_id) 
 ```
 
-
 Treemap aisles/department
 ```{r}
 library(treemap)
 products %>%
-  group_by(department_id, aisle_id) %>%
+  group_by(department, aisle) %>%
   summarize(count = n()) %>%
-  left_join(aisles, by = "aisle_id") %>%
-  left_join(departments, by = "department_id") %>%
   treemap(dtf = .,
           index = c("department", "aisle"),
           vSize = "count",
           type = "index",
           palette = "Spectral",
-          title = "Orders for departments and aisles")
+          title = "Products per department and aisle")
 
 products %>%
-  left_join(departments, by = "department_id") %>%
   group_by(department) %>%
   summarize(count = n()) %>%
   arrange(desc(count))
 
 products %>%
-  left_join(aisles, by = "aisle_id") %>%
   group_by(aisle) %>%
   summarize(count = n()) %>%
   arrange(desc(count))
 
 ```
 
+What info can we get about customers?
+- how many orders they did?
+- how often they ordered?
+- how many products pro order?
+```{r}
+# Keep only customers where we have complete information about orders (prior + train)
+train_users <- orders %>%
+  filter(eval_set == "train") %>% 
+  distinct(user_id) %>%
+  pull()
+orders_train_users <- orders %>%
+  filter(user_id %in% train_users) %>%
+  distinct(order_id) %>%
+  pull()
+orders_no_test <- orders %>%
+  filter(user_id %in% train_users) %>%
+  droplevels()
+order_products_prior_no_test <- order_products_prior %>%
+  filter(order_id %in% orders_train_users) %>%
+  droplevels()
+
+# How many orders they did?
+user_count_orders <- orders_no_test %>%
+  group_by(user_id) %>%
+  summarize(count_orders = n_distinct(order_id))
+
+user_orders_day <- orders_no_test %>%
+  group_by(user_id, order_dow) %>%
+  summarize(count = n()) %>%
+  spread(order_dow, count) %>%
+  replace(is.na(.), 0) %>%
+  rename_at(vars(-user_id), function(x) paste0(x,"_orders"))
+user_orders_day
+
+library(stringr)
+
+
+# How often they ordered?
+user_avg_days_since_prior_order <- orders_no_test %>%
+  filter(order_number != 1) %>%
+  group_by(user_id) %>%
+  summarize(avg_days_since_prior_order = round(sum(days_since_prior_order)/n(), 0))
+
+# How many products per order?
+user_avg_products_order <- order_products_prior_no_test %>%
+  full_join(order_products_train, by = c("order_id", "product_id", "add_to_cart_order", "reordered")) %>%
+  right_join(orders_no_test, by = "order_id") %>%
+  group_by(user_id) %>%
+  summarize(avg_products_order = round(n()/n_distinct(order_id), 0))
+
+
+
+
+```

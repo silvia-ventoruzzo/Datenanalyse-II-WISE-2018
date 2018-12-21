@@ -1,0 +1,125 @@
+---
+title: "Info"
+author: "Silvia Ventoruzzo"
+date: "9/12/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(DescTools)
+```
+
+
+
+```{r}
+aisles <- read.csv(file.path(getwd(), "instacart-market-basket-analysis", "aisles.csv", fsep="/"))
+departments <- read.csv(file.path(getwd(), "instacart-market-basket-analysis", "departments.csv", fsep="/"))
+order_products_prior <- read.csv(file.path(getwd(), "instacart-market-basket-analysis", "order_products__prior.csv", fsep="/"))
+order_products_train <- read.csv(file.path(getwd(), "instacart-market-basket-analysis", "order_products__train.csv", fsep="/"))
+orders <- read.csv(file.path(getwd(), "instacart-market-basket-analysis", "orders.csv", fsep="/"))
+products <- read.csv(file.path(getwd(), "instacart-market-basket-analysis", "products.csv", fsep="/"))
+
+```
+
+
+```{r}
+orders <- orders %>%
+  mutate(order_dow = recode_factor(as.factor(order_dow),
+                            "1" = "Monday",
+                            "2" = "Tuesday",
+                            "3" = "Wednesday",
+                            "4" = "Thursday",
+                            "5" = "Friday",
+                            "6" = "Saturday",
+                            "0" = "Sunday"))
+```
+
+Put information together for the "Train" Orders
+```{r}
+apply(orders, 2, function(x) any(is.na(x)))
+orders %>% dplyr::filter(is.na(days_since_prior_order)) %>% group_by(eval_set) %>% summarize(count = n())
+
+orders_train <- orders %>% 
+  dplyr::filter(eval_set == "train") %>% 
+  right_join(order_products_train, by = "order_id") %>%
+  left_join(products, by = "product_id") %>%
+  left_join(aisles, by = "aisle_id") %>%
+  left_join(departments, by = "department_id") %>%
+  mutate(order_dow = recode_factor(as.factor(order_dow),
+                            "1" = "Monday",
+                            "2" = "Tuesday",
+                            "3" = "Wednesday",
+                            "4" = "Thursday",
+                            "5" = "Friday",
+                            "6" = "Saturday",
+                            "0" = "Sunday")) %>%
+  dplyr::select(order_id, user_id, order_dow, order_hour_of_day, days_since_prior_order,
+                product_name, add_to_cart_order, reordered, aisle, department) %>%
+  rename("day_of_week" = "order_dow",
+         "hour_of_day" = "order_hour_of_day",
+         "product" = "product_name",
+         "cart_order" = "add_to_cart_order") %>%
+  arrange(order_id, cart_order)
+
+products %>% filter(product_name %like% ".5\\\ ")
+
+```
+
+Plots
+```{r}
+# hour_of_day distribution
+orders_train %>% 
+  ggplot() +
+  geom_histogram(aes(x = as.factor(hour_of_day)), stat="count", fill = "blue") +
+  labs(x = "Hour of the day")
+
+# day_of_week distribution
+orders_train %>%
+  ggplot() +
+  geom_histogram(aes(x = as.factor(day_of_week)), stat="count", fill = "orange") +
+  labs(x = "Day of the week") # need to understand how to reorder factor levels!
+
+# days_since_prior_order distribution
+orders_train %>%
+  ggplot() +
+  geom_histogram(aes(x = days_since_prior_order), stat="count", fill = "dark green") +
+  labs(x = "Days since prior order") 
+
+# day_of_week, hour_of_day mosaic plot
+day_hour <- table(orders_train$day_of_week, orders_train$hour_of_day)
+mosaicplot(day_hour, 
+           main = "Mosaic plot of order day and hour",
+           xlab = "Day of the week",
+           ylab = "Hour of the day",
+           shade = TRUE)
+
+# Items per order distribution
+orders_train %>%
+  group_by(order_id) %>%
+  summarize(order_amount = n()) %>%
+  ggplot() +
+  geom_histogram(aes(x = order_amount), stat="count", fill = "pink") +
+  labs(x = "Items per order") 
+
+# Most ordered products
+# it either takes too long or it doesn't work
+orders_train %>%
+  ggplot() +
+  geom_histogram(aes(x = product), stat="count", fill = "yellow") +
+  labs(x = "Products")
+
+orders_train %>%
+  group_by(product) %>%
+  summarize(count = n()) %>%
+  ggplot() +
+  geom_histogram(aes(x = product, y = count), stat="identity", fill = "yellow") +
+  labs(x = "Products") 
+
+
+```
+
+```{r}
+
+```
