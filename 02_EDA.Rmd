@@ -45,16 +45,8 @@ orders_train <- orders %>%
   dplyr::filter(eval_set == "train") %>% 
   right_join(order_products_train, by = "order_id") %>%
   left_join(products, by = "product_id") %>%
-  left_join(aisles, by = "aisle_id") %>%
-  left_join(departments, by = "department_id") %>%
-  mutate(order_dow = recode_factor(as.factor(order_dow),
-                            "1" = "Monday",
-                            "2" = "Tuesday",
-                            "3" = "Wednesday",
-                            "4" = "Thursday",
-                            "5" = "Friday",
-                            "6" = "Saturday",
-                            "0" = "Sunday")) %>%
+  # left_join(aisles, by = "aisle_id") %>%
+  # left_join(departments, by = "department_id") %>%
   dplyr::select(order_id, user_id, order_dow, order_hour_of_day, days_since_prior_order,
                 product_name, add_to_cart_order, reordered, aisle, department) %>%
   rename("day_of_week" = "order_dow",
