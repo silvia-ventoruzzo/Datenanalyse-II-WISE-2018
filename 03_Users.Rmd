@@ -368,6 +368,6 @@ look if the behaviour displayed in the first order is repeated
 
 Market basket analysis
 ```{r}
-library(arules)
-trObj<-as(orders_prior_no_test,"transactions")
+# library(arules)
+# trObj<-as(orders_prior_no_test,"transactions")
 ```
