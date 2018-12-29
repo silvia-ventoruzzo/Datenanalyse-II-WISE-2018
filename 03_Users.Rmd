@@ -17,8 +17,9 @@ Explanation of dataset:
 
 ```{r}
 orders_prior <- orders %>%
-  full_join(order_products_prior, by = "order_id") %>%
-  arrange(user_id, order_number)
+  right_join(order_products_prior, by = "order_id") %>%
+  arrange(user_id, order_number) %>%
+    droplevels()
 ```
 
 All 1st orders have NA for "days_since_prior_order" and 0 for all products in "reordered"
@@ -144,12 +145,12 @@ user_count_orders <- orders_no_test %>%
   summarize(tot_orders = n_distinct(order_id))
 
 # How many orders per day?
-user_orders_day <- orders_no_test %>%
-  group_by(user_id, order_dow) %>%
-  summarize(count = n()) %>%
-  spread(order_dow, count) %>%
-  replace(is.na(.), 0) %>%
-  rename_at(vars(-user_id), function(x) tolower(paste0(x,"_orders")))
+# user_orders_day <- orders_no_test %>%
+#   group_by(user_id, order_dow) %>%
+#   summarize(count = n()) %>%
+#   spread(order_dow, count) %>%
+#   replace(is.na(.), 0) %>%
+#   rename_at(vars(-user_id), function(x) tolower(paste0(x,"_orders")))
 
 # How often they ordered?
 user_avg_days_since_prior_order <- orders_no_test %>%
@@ -158,11 +159,11 @@ user_avg_days_since_prior_order <- orders_no_test %>%
   summarize(avg_days_since_prior_order = round(sum(days_since_prior_order)/n(), 0))
 
 # How many products per order?
-user_avg_products_order <- order_products_prior_no_test %>%
-  full_join(order_products_train, by = c("order_id", "product_id", "add_to_cart_order", "reordered")) %>%
-  right_join(orders_no_test, by = "order_id") %>%
-  group_by(user_id) %>%
-  summarize(avg_products_order = round(n()/n_distinct(order_id), 0))
+# user_avg_products_order <- order_products_prior_no_test %>%
+#   full_join(order_products_train, by = c("order_id", "product_id", "add_to_cart_order", "reordered")) %>%
+#   right_join(orders_no_test, by = "order_id") %>%
+#   group_by(user_id) %>%
+#   summarize(avg_products_order = round(n()/n_distinct(order_id), 0))
 
 # Join dataframes
 users <- user_count_orders %>%
@@ -308,8 +309,8 @@ user_product_category %>%
 # Join dataframes
 users <- user_count_orders %>%
   full_join(user_product_count, by = "user_id") %>%
-    full_join(user_product_category, by = "user_id") %>%
-    full_join(user_department_share, by = "user_id")
+  full_join(user_product_category, by = "user_id") %>%
+  full_join(user_department_share, by = "user_id")
 
 orders_prior_no_test <- orders_no_test %>%
   right_join(order_products_prior_no_test, by = "order_id") %>%
