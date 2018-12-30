@@ -15,11 +15,24 @@ Explanation of dataset:
 - orders has one line pro order with the corresponding time, evaluation set and customer. "order_number" indicates the order for each customer in which the orders were placed
 - order_products_(prior and train) contain more detailed information of the order, that is the products ordered, in which order they were put into the basket and if the corresponding customer already ordered that specific product 
 
+# Keep only prior orders of customers where we have complete information about orders (prior + train)
+
 ```{r}
+# Find "train"-customers
+train_users <- orders %>%
+  filter(eval_set == "train") %>% 
+  distinct(user_id) %>%
+  pull()
+
+# Keep only prior orders from those customers
 orders_prior <- orders %>%
-  right_join(order_products_prior, by = "order_id") %>%
+  filter(user_id %in% train_users) %>%
+  inner_join(order_products_prior, by = "order_id") %>%
+  left_join(products, by = "product_id") %>%
   arrange(user_id, order_number) %>%
-    droplevels()
+  droplevels()
+
+rm("orders", "order_products_prior", "products", "train_users")
 ```
 
 All 1st orders have NA for "days_since_prior_order" and 0 for all products in "reordered"
@@ -35,86 +48,6 @@ orders_prior %>%
   summarize(count = n())
 ```
 
-To which evaluation set do the orders for the different users belong?
-```{r}
-orders %>%
-  group_by(user_id, eval_set) %>%
-  summarize(count = n())
-```
-
-There is one department/aisle combination where both have value "missing". Since there is also one combination with "other", I will set this missing values so to say to the "other" category
-```{r}
-departments %>% filter(department == "missing" | department == "other")
-# 2: other
-# 21: missing
-
-aisles %>% filter(aisle == "missing" | aisle == "other")
-# 6: other
-# 100: missing
-
-# products
-products <- products %>%
-  left_join(aisles, by = "aisle_id") %>%
-  left_join(departments, by = "department_id") %>%
-  mutate(department_id = replace(department_id, department == "missing", 2),
-         department = replace(department, department == "missing", "other"),
-         aisle_id = replace(aisle_id, aisle == "missing", 6),
-         aisle = replace(aisle, aisle == "missing", "other")) %>%
-    droplevels()
-
-# departments
-departments <- departments %>%
-  mutate(department_id = replace(department_id, department == "missing", 2),
-         department = fct_recode(department, "other" = "missing")) %>%
-  distinct(department_id, department)
-         
-# aisles
-aisles <- aisles %>%
-  mutate(aisle_id = replace(aisle_id, aisle == "missing", 6),
-         aisle = fct_recode(aisle, "other" = "missing")) %>%
-  distinct(aisle_id, aisle)
-
-```
-
-Each aisles is assigned to one specific department
-```{r}
-products %>%
-  group_by(aisle_id) %>%
-  summarize(count_department_id = n_distinct(department_id)) %>%
-  summarize(aisle_department = sum(count_department_id))
-
-aisles_departments <- products %>%
-  distinct(department_id, aisle_id) %>%
-  left_join(aisles, by = "aisle_id") %>%
-  left_join(departments, by = "department_id") %>%
-  arrange(department_id) 
-```
-
-Treemap aisles/department
-```{r}
-library(treemap)
-products %>%
-  group_by(department, aisle) %>%
-  summarize(count = n()) %>%
-  treemap(dtf = .,
-          index = c("department", "aisle"),
-          vSize = "count",
-          type = "index",
-          palette = "Spectral",
-          title = "Products per department and aisle")
-
-products %>%
-  group_by(department) %>%
-  summarize(count = n()) %>%
-  arrange(desc(count))
-
-products %>%
-  group_by(aisle) %>%
-  summarize(count = n()) %>%
-  arrange(desc(count))
-
-```
-
 What info can we get about customers?
 - how many orders they did?
 - how many orders per day?
@@ -123,24 +56,10 @@ What info can we get about customers?
 
 MAYBE I SHOULD DO ALL OF THIS ONLY ON PRIOR SET FOR TRAIN USERS
 ```{r}
-# Keep only customers where we have complete information about orders (prior + train)
-train_users <- orders %>%
-  filter(eval_set == "train") %>% 
-  distinct(user_id) %>%
-  pull()
-orders_train_users <- orders %>%
-  filter(user_id %in% train_users) %>%
-  distinct(order_id) %>%
-  pull()
-orders_no_test <- orders %>%
-  filter(user_id %in% train_users) %>%
-  droplevels()
-order_products_prior_no_test <- order_products_prior %>%
-  filter(order_id %in% orders_train_users) %>%
-  droplevels()
+
 
 # How many orders they did?
-user_count_orders <- orders_no_test %>%
+user_count_orders <- orders_prior %>%
   group_by(user_id) %>%
   summarize(tot_orders = n_distinct(order_id))
 
@@ -153,10 +72,10 @@ user_count_orders <- orders_no_test %>%
 #   rename_at(vars(-user_id), function(x) tolower(paste0(x,"_orders")))
 
 # How often they ordered?
-user_avg_days_since_prior_order <- orders_no_test %>%
-  filter(order_number != 1) %>%
-  group_by(user_id) %>%
-  summarize(avg_days_since_prior_order = round(sum(days_since_prior_order)/n(), 0))
+# user_avg_days_since_prior_order <- orders_no_test %>%
+#   filter(order_number != 1) %>%
+#   group_by(user_id) %>%
+#   summarize(avg_days_since_prior_order = round(sum(days_since_prior_order)/n(), 0))
 
 # How many products per order?
 # user_avg_products_order <- order_products_prior_no_test %>%
@@ -166,14 +85,14 @@ user_avg_days_since_prior_order <- orders_no_test %>%
 #   summarize(avg_products_order = round(n()/n_distinct(order_id), 0))
 
 # Join dataframes
-users <- user_count_orders %>%
-  inner_join(user_orders_day, by = "user_id") %>%
-  inner_join(user_avg_days_since_prior_order, by = "user_id") %>%
-  inner_join(user_avg_products_order, by = "user_id")
-rm(user_count_orders)
-rm(user_orders_day)
-rm(user_avg_days_since_prior_order)
-rm(user_avg_products_order)
+# users <- user_count_orders %>%
+#   inner_join(user_orders_day, by = "user_id") %>%
+#   inner_join(user_avg_days_since_prior_order, by = "user_id") %>%
+#   inner_join(user_avg_products_order, by = "user_id")
+# rm(user_count_orders)
+# rm(user_orders_day)
+# rm(user_avg_days_since_prior_order)
+# rm(user_avg_products_order)
 ```
 
 Oliver:
@@ -184,36 +103,22 @@ nur erste Bestellungen schauen
 
 ```{r}
 # Keeping only first orders
-first_orders_products <- orders %>%
-  filter(user_id %in% train_users,
-         order_number == 1) %>%
-  inner_join(order_products_prior, by = "order_id") %>%
-  inner_join(products, by = "product_id") %>%
-  dplyr::select(order_id,
-                user_id,
-                order_dow,
-                order_hour_of_day,
-                product_id,
-                product_name,
-                aisle_id,
-                aisle,
-                department_id,
-                department,
-                add_to_cart_order)
+orders_first <- orders_prior %>%
+  filter(order_number == 1)
 
 # How many products ordered?
-user_product_count <- first_orders_products %>%
+user_product_count <- orders_first %>%
   group_by(user_id) %>%
-  summarize(product_count = n())
+  summarize(product_count = n()) %>%
+  ungroup()
 
-
-# Shares for each department?
-user_department_share <- first_orders_products %>%
-  group_by(user_id, department) %>%
+# Shares for each aisle?
+user_aisle_share <- orders_first %>%
+  group_by(user_id, aisle) %>%
   summarize(count = n()) %>%
-  spread(department, count) %>%
+  ungroup() %>%
+  spread(aisle, count) %>%
   replace(is.na(.), 0)
-
 ```
 
 Oliver:
@@ -221,29 +126,9 @@ alle Bestellungen
 - welche Artikel beliebter? -> kunden kauft mainstream artikel oder seltene artikel
 
 ```{r}
-# All prior orders
-prior_orders_products <- orders %>%
-  filter(user_id %in% train_users) %>%
-  inner_join(order_products_prior, by = "order_id") %>%
-  inner_join(products, by = "product_id") %>%
-  dplyr::select(order_id,
-                user_id,
-                order_number,
-                order_dow,
-                order_hour_of_day,
-                days_since_prior_order,
-                product_id,
-                product_name,
-                aisle_id,
-                aisle,
-                department_id,
-                department,
-                add_to_cart_order,
-                reordered)
-
 
 # Actually, is it possible to order the same product multiple times in an order?
-prior_orders_products %>%
+orders_prior %>%
   group_by(order_id, product_id) %>%
   summarize(count = n()) %>%
   group_by(count) %>%
@@ -251,7 +136,7 @@ prior_orders_products %>%
 # Answer: NO!
 
 # What are the most bought products?
-products_ordered_amount <- prior_orders_products %>%
+products_ordered_amount <- orders_prior %>%
   group_by(product_id, product_name) %>%
   summarize(times_ordered = n()) %>%
   arrange(desc(times_ordered)) %>%
@@ -261,15 +146,6 @@ products_ordered_amount <- prior_orders_products %>%
                             ifelse(share > quantile(share, probs = 0.25) & 
                                   share <= quantile(share, probs = 0.75), "normal",
                             "common")))
-
-
-#  perzentile von share berechnet
-  
-  group_by(times_ordered) %>%
-  mutate(times_distr = n()) %>%
-  ungroup() %>%
-  mutate(product_category = ifelse(times_distr == 1, "mainstream", "rare")) %>%
-  arrange(desc(times_ordered))
 
 # Look at the distribution of the times products were ordered
 products_ordered_amount %>%
@@ -286,7 +162,7 @@ products_ordered_amount %>%
   filter(count == 1)
 
 # What kind of products did the user buy in first order?
-user_product_category <- first_orders_products %>%
+user_product_category <- orders_first %>%
   left_join(products_ordered_amount, by = c("product_id", "product_name")) %>%
   group_by(user_id, product_category) %>%
   summarize(count = n()) %>%
@@ -296,13 +172,12 @@ user_product_category <- first_orders_products %>%
 
 user_product_category %>%
   ggplot() +
-  geom_line(aes(x = mainstream, colour = "red"), stat="count", color = "red") +
-  geom_line(aes(x = rare, colour = "yellow"), stat="count") +
-  scale_color_discrete(name = "category_type", labels = c("mainstream", "rare")) +
+  geom_line(aes(x = common_product, colour = "red"), stat="count") +
+  geom_line(aes(x = normal_product, colour = "orange"), stat="count") +
+  geom_line(aes(x = rare_product, colour = "yellow"), stat="count") +
+  scale_color_discrete(name = "product_category", labels = c("common", "normal", "rare")) +
   labs(x = "Products of each category type in the first order")
   
-
-
 ```
 
 ```{r}
@@ -310,11 +185,11 @@ user_product_category %>%
 users <- user_count_orders %>%
   full_join(user_product_count, by = "user_id") %>%
   full_join(user_product_category, by = "user_id") %>%
-  full_join(user_department_share, by = "user_id")
+  full_join(user_aisle_share, by = "user_id") %>%
+  mutate(user_id = as.factor(user_id))
 
-orders_prior_no_test <- orders_no_test %>%
-  right_join(order_products_prior_no_test, by = "order_id") %>%
-  left_join(products, by = "product_id")
+rm("orders_prior", "orders_first", "products_ordered_amount", "user_count_orders",
+   "user_department_share", "user_product_category", "user_product_count")
 ```
 
 Silvia:
