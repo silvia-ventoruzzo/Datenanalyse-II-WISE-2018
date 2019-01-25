@@ -25,18 +25,19 @@ train_users <- orders %>%
   pull()
 
 # Keep only prior orders from those customers
-orders_prior <- orders %>%
+train_orders_prior <- orders %>%
   filter(user_id %in% train_users) %>%
   inner_join(order_products_prior, by = "order_id") %>%
-  left_join(products, by = "product_id") %>%
+  inner_join(products, by = "product_id") %>%
   arrange(user_id, order_number) %>%
   droplevels()
 
-rm("orders", "order_products_prior", "products", "train_users")
-```
+# Create dataframe with only first order of each customer
+train_order_first <- train_orders_prior %>%
+  filter(order_number == 1)
 
-All 1st orders have NA for "days_since_prior_order" and 0 for all products in "reordered"
-```{r}
+# All 1st orders have NA for "days_since_prior_order" and 0 for all products in "reordered"
+
 orders_prior %>%
   filter(order_number == 1) %>%
   group_by(days_since_prior_order) %>%
@@ -46,53 +47,11 @@ orders_prior %>%
   filter(order_number == 1) %>%
   group_by(reordered) %>%
   summarize(count = n())
-```
 
-What info can we get about customers?
-- how many orders they did?
-- how many orders per day?
-- how often they ordered?
-- how many products pro order?
+train_order_first <- train_order_first %>%
+  select(-days_since_prior_order, -reordered)
 
-MAYBE I SHOULD DO ALL OF THIS ONLY ON PRIOR SET FOR TRAIN USERS
-```{r}
-
-
-# How many orders they did?
-user_count_orders <- orders_prior %>%
-  group_by(user_id) %>%
-  summarize(tot_orders = n_distinct(order_id))
-
-# How many orders per day?
-# user_orders_day <- orders_no_test %>%
-#   group_by(user_id, order_dow) %>%
-#   summarize(count = n()) %>%
-#   spread(order_dow, count) %>%
-#   replace(is.na(.), 0) %>%
-#   rename_at(vars(-user_id), function(x) tolower(paste0(x,"_orders")))
-
-# How often they ordered?
-# user_avg_days_since_prior_order <- orders_no_test %>%
-#   filter(order_number != 1) %>%
-#   group_by(user_id) %>%
-#   summarize(avg_days_since_prior_order = round(sum(days_since_prior_order)/n(), 0))
-
-# How many products per order?
-# user_avg_products_order <- order_products_prior_no_test %>%
-#   full_join(order_products_train, by = c("order_id", "product_id", "add_to_cart_order", "reordered")) %>%
-#   right_join(orders_no_test, by = "order_id") %>%
-#   group_by(user_id) %>%
-#   summarize(avg_products_order = round(n()/n_distinct(order_id), 0))
-
-# Join dataframes
-# users <- user_count_orders %>%
-#   inner_join(user_orders_day, by = "user_id") %>%
-#   inner_join(user_avg_days_since_prior_order, by = "user_id") %>%
-#   inner_join(user_avg_products_order, by = "user_id")
-# rm(user_count_orders)
-# rm(user_orders_day)
-# rm(user_avg_days_since_prior_order)
-# rm(user_avg_products_order)
+rm("orders", "order_products_prior", "products", "train_users")
 ```
 
 Oliver:
@@ -102,10 +61,6 @@ nur erste Bestellungen schauen
 - 
 
 ```{r}
-# Keeping only first orders
-orders_first <- orders_prior %>%
-  filter(order_number == 1)
-
 # How many products ordered?
 user_product_count <- orders_first %>%
   group_by(user_id) %>%
@@ -191,6 +146,59 @@ users <- user_count_orders %>%
 rm("orders_prior", "orders_first", "products_ordered_amount", "user_count_orders",
    "user_department_share", "user_product_category", "user_product_count")
 ```
+
+
+
+
+
+What info can we get about customers?
+- how many orders they did?
+- how many orders per day?
+- how often they ordered?
+- how many products pro order?
+
+MAYBE I SHOULD DO ALL OF THIS ONLY ON PRIOR SET FOR TRAIN USERS
+```{r}
+
+
+# How many orders they did?
+user_count_orders <- orders_prior %>%
+  group_by(user_id) %>%
+  summarize(tot_orders = n_distinct(order_id))
+
+# How many orders per day?
+# user_orders_day <- orders_no_test %>%
+#   group_by(user_id, order_dow) %>%
+#   summarize(count = n()) %>%
+#   spread(order_dow, count) %>%
+#   replace(is.na(.), 0) %>%
+#   rename_at(vars(-user_id), function(x) tolower(paste0(x,"_orders")))
+
+# How often they ordered?
+# user_avg_days_since_prior_order <- orders_no_test %>%
+#   filter(order_number != 1) %>%
+#   group_by(user_id) %>%
+#   summarize(avg_days_since_prior_order = round(sum(days_since_prior_order)/n(), 0))
+
+# How many products per order?
+# user_avg_products_order <- order_products_prior_no_test %>%
+#   full_join(order_products_train, by = c("order_id", "product_id", "add_to_cart_order", "reordered")) %>%
+#   right_join(orders_no_test, by = "order_id") %>%
+#   group_by(user_id) %>%
+#   summarize(avg_products_order = round(n()/n_distinct(order_id), 0))
+
+# Join dataframes
+# users <- user_count_orders %>%
+#   inner_join(user_orders_day, by = "user_id") %>%
+#   inner_join(user_avg_days_since_prior_order, by = "user_id") %>%
+#   inner_join(user_avg_products_order, by = "user_id")
+# rm(user_count_orders)
+# rm(user_orders_day)
+# rm(user_avg_days_since_prior_order)
+# rm(user_avg_products_order)
+```
+
+
 
 Silvia:
 look if the behaviour displayed in the first order is repeated
