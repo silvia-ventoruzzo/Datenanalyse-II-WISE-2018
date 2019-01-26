@@ -1,0 +1,241 @@
+---
+title: "Online purchases"
+author: "Silvia Ventoruzzo"
+date: "25/1/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(lubridate)
+library(NbClust)
+library(cluster)
+```
+
+# Create dataframe
+
+Load dataframe
+```{r}
+purchases <- read.csv(file.path("/Users/silvia.ventoruzzo/Desktop", "online_retail.csv", fsep="/"), 
+                      sep = ";", dec = ",")
+```
+
+Rename variables
+```{r}
+purchases <- purchases %>%
+  rename(invoice_id       = InvoiceNo,
+         product_id       = StockCode,
+         product_name     = Description,
+         product_quantity = Quantity,
+         invoice_datetime = InvoiceDate,
+         product_price    = UnitPrice,
+         customer_id      = CustomerID,
+         customer_country = Country)
+```
+
+Missing values
+```{r}
+# Check for missing values
+apply(purchases, 2, function(x) any(is.na(x)))
+
+# Since we want to cluster customers, we cannot have have purchases without the customer information
+# We can however check if it was present in another row of the same invoice
+invoices_na_customer <- purchases %>%
+  filter(is.na(customer_id)) %>%
+  distinct(invoice_id) %>%
+  pull()
+
+purchases %>%
+  filter(invoice_id %in% invoices_na_customer,
+         !is.na(customer_id))
+
+# Apparently 3710 invoices do not have the relative customer_id
+# And we cannot derive it in a secure way without risking to ruining the dataset for clusterin
+# Therefore we will simply delete these rows
+purchases <- purchases %>%
+  filter(!is.na(customer_id))
+rm("invoices_na_customer")
+```
+
+New variables
+```{r}
+purchases <- purchases %>%
+  mutate(tot_product_price = product_quantity*product_price,
+         product_name      = tolower(product_name),
+         customer_country  = fct_relabel(customer_country, tolower),
+         invoice_datetime  = dmy_hm(invoice_datetime, tz = "Europe/London"),
+         invoice_date      = date(invoice_datetime),
+         invoice_day       = day(invoice_datetime),
+         invoice_month     = month(invoice_datetime),
+         invoice_year      = year(invoice_datetime),
+         invoice_dow       = wday(invoice_datetime, label = TRUE, abbr = TRUE) %>% 
+                              fct_relabel(tolower),
+         invoice_tow       = ifelse(invoice_dow == "sat" | invoice_dow == "sun", "weekend",
+                                                                                 "workday"),
+         invoice_time      = strftime(invoice_datetime,"%H:%M:%S", tz = "Europe/London") %>%
+                              chron::times(),
+         invoice_hour      = hour(invoice_datetime),
+         invoice_tod       = ifelse(invoice_hour >= 6  & invoice_hour < 12, "morning",
+                             ifelse(invoice_hour >= 12 & invoice_hour < 18, "afternoon",
+                             ifelse(invoice_hour >= 18 & invoice_hour < 24, "evening",
+                                                                            "night"))) %>%
+                              factor(levels = c("morning", "afternoon", "evening", "night")),
+         invoice_tow_tod   = paste(invoice_tow, invoice_tod, sep = "_")) %>%
+  arrange(customer_id, invoice_year, invoice_month, invoice_day, invoice_hour) %>%
+  group_by(customer_id) %>%
+  mutate(invoice_number = dense_rank(invoice_id)) %>%
+  ungroup()
+```
+
+# Clustering products
+
+Since the information about the type of products is not present, we will try and build our own by clustering
+
+Create products dataframe for clustering
+```{r}
+# Rename products that are free (product_price = 0)
+purchases <- purchases %>%
+  mutate(product_name = ifelse(product_price == 0, 
+                               paste("free", product_name, sep = " "),
+                               product_name))
+
+# Number of distinct products
+purchases %>%
+  distinct(product_id, product_name)
+# 3951
+  
+# Some products display different prices, for clustering I will calculate the average price
+products_mean_prices <- purchases %>%  
+  group_by(product_id, product_name) %>%
+  distinct(product_price) %>%
+  summarize(product_mean_price = mean(product_price) %>% round(2)) %>%
+  ungroup()
+
+# In which times of day and in which days of the week the products are being bought
+products_purchases_time <- purchases %>%
+  filter(product_quantity > 0) %>%
+  select(product_id, product_name, invoice_tow_tod) %>%
+  rowid_to_column(var = "i") %>%
+  # mutate(yesno_time = 1) %>%
+  # mutate(yesno_tow  = 1) %>%
+  mutate(yesno  = 1) %>%
+  # spread(invoice_tod, yesno_time, fill = 0) %>%
+  # spread(invoice_tow, yesno_tow, fill = 0) %>%
+  spread(invoice_tow_tod, yesno, fill = 0) %>%
+  select(-i) %>%
+  group_by(product_id, product_name) %>%
+  summarize_all(sum) %>%
+  ungroup()
+
+# Percentage of times products have been returned
+products_returned <- purchases %>%
+  select(invoice_id, product_id, product_name, product_quantity,
+         invoice_datetime, customer_id) %>%
+  group_by(product_id, product_name) %>%
+  summarize(times_purchased = n_distinct(invoice_id),
+            times_returned = sum(product_quantity <= 0),
+            percentage_returned = round(times_returned/times_purchased*100, 2)) %>%
+  select(-times_returned) %>%
+  ungroup()
+
+# Times reordered (not counting products that have been returned)
+products_reordered <- purchases %>%
+  filter(product_quantity > 0) %>%
+  group_by(customer_id, product_id, product_name) %>%
+  summarize(count = n()-1) %>%
+  group_by(product_id, product_name) %>%
+  summarize(times_reordered = sum(count)) %>%
+  ungroup()
+
+# Join dataframes
+products <- products_mean_prices %>%
+  left_join(products_purchases_time, by = c("product_id", "product_name")) %>%
+  left_join(products_returned, by = c("product_id", "product_name")) %>%
+  left_join(products_reordered, by = c("product_id", "product_name")) %>%
+  replace(is.na(.), 0) %>%
+  mutate(percentage_reordered = round(times_reordered/times_purchased*100, 2)) %>%
+  select(-times_purchased, -times_reordered) %>%
+  arrange(product_id)
+
+# Correlation plot
+products %>%
+  select(-product_id, -product_name) %>%
+  cor() %>%
+  corrplot::corrplot()
+
+rm("products_mean_prices", "products_purchases_time", "products_returned", "products_reordered")
+```
+
+Determine the number of clusters
+```{r}
+# Scale dataframe
+products_scaled <- products %>%
+  select(-product_id, -product_name) %>%
+  scale()
+
+# Calculate distance
+products_dist <- dist(products_scaled)
+# Hierarchical clustering
+products_hclust <- hclust(products_dist)
+# Dendogramm
+plot(products_hclust)
+# It looks like a 3 cluster solution
+
+# Total variance explained
+tve <- rep(NA, 15)
+for (k in 2:15) {
+  clk <- kmeans(products_scaled, k)
+  tve[k] <- 1-clk$tot.withinss/clk$totss
+  }
+plot(tve, type="b")
+# It looks like a 3 cluster solution
+
+# Indexes
+indexes <- c("ch", "duda", "cindex", "beale")
+results <- vector(mode = "list", length = length(indexes))
+nc <- vector(length = length(indexes))
+for (i in 1:length(indexes)) {
+  results[[i]] <- try(NbClust(products_scaled, method = "kmeans", index = indexes[i]))
+  nc[i] <- results[[i]]$Best.nc[1]
+  print(paste("Index", indexes[i], "done", sep = " "))
+}
+nc
+# Majority rule: 2 clusters
+
+rm("i", "indexes", "nc", "results", "products_dist", "products_hclust", "tve", "clk", "k")
+```
+
+k-means
+```{r}
+products_kmeans <- kmeans(products_scaled, centers = 3)
+
+p <- products %>%
+  select(product_id, product_name) %>%
+  cbind(products_scaled)
+
+centers <- products_kmeans$centers
+
+# Plot
+ggplot() + 
+ geom_point(data = p, 
+            aes(x = percentage_returned, y = percentage_reordered, color = as.factor(products_kmeans$cluster))) + 
+ geom_point(data = as.data.frame(products_kmeans$centers), 
+            aes(x = percentage_returned, y = percentage_reordered, color = "purple")) +
+ geom_point(data = as.data.frame(products_kmeans$centers), 
+            aes(x = percentage_returned, y = percentage_reordered, color = "purple"),
+            size = 52, alpha = 0.3, show.legend = FALSE)
+
+# Assign corresponding cluster to the products
+products <- products %>%
+  select(product_id, product_name) %>%
+  cbind(products_kmeans$cluster) %>%
+  rename("product_cluster" = "products_kmeans$cluster")
+
+rm("p", "centers", "products_scaled", "products_kmeans")
+```
+
+Join with the purchases dataframe
+```{r}
+purchases <- purchases %>%
+  left_join(products, by = c("product_id", "product_name"))
+```
