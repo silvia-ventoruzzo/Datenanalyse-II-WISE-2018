@@ -226,11 +226,11 @@ ggplot() +
             size = 52, alpha = 0.3, show.legend = FALSE)
 
 # Assign corresponding cluster to the products
-products <- products %>%
-  select(product_id, product_name) %>%
-  mutate(product_cluster = paste("product", "cluster", products_kmeans$cluster, sep = "_"))
+customers <- customers %>%
+  select(customer_id) %>%
+  mutate(customer_cluster = paste("customer", "cluster", customers_kmeans$cluster, sep = "_"))
 
-rm("p", "centers", "products_scaled", "products_kmeans")
+rm("c", "centers", "customers_scaled", "customers_kmeans")
 ```
 
 Join with the purchases dataframe
@@ -251,6 +251,17 @@ First of all, we need to create the dataframe with the relevant variables. We wi
 purchases_first <- purchases %>%
   filter(invoice_number == 1)
 
+# Some of these have returns, which means that they are not really the first orders
+purchases_first %>%
+  filter(product_quantity <= 0)
+
+# We can however assume that these products were ordered before and that was their first order
+# We will make the product_quantity positive, but we have to see how to fix the invoice date and time accordingly
+purchases %>%
+  filter(product_quantity <= 0) %>%
+  select(product_id, product_name, product_quantity, invoice_datetime, product_price,
+         customer_id, invoice_id, invoice_number)
+
 # How many products in the first order and how many different types of products?
 customers_product_count <- purchases_first %>%
   filter(product_quantity > 0) %>% # Just in case
@@ -263,9 +274,9 @@ customers_product_count <- purchases_first %>%
 customers_cluster_share <- purchases_first %>%
   filter(product_quantity > 0) %>% # Just in case
   group_by(customer_id) %>%
-  mutate(total_products = n()*sum(product_quantity)) %>%
+  mutate(total_products = sum(product_quantity)) %>%
   group_by(customer_id, product_cluster) %>%
-  summarize(share = n()*sum(product_quantity)/unique(total_products)) %>%
+  summarize(share = sum(product_quantity)/unique(total_products)) %>%
   ungroup() %>%
   spread(product_cluster, share) %>%
   replace(is.na(.), 0)
@@ -273,7 +284,7 @@ customers_cluster_share <- purchases_first %>%
 # What category of products, according to their ordered amount, did they order
 products_ordered_amount <- purchases %>%
   group_by(product_id, product_name) %>%
-  summarize(times_ordered = n()*sum(product_quantity)) %>%
+  summarize(times_ordered = sum(product_quantity)) %>%
   ungroup() %>%
   mutate(product_share = times_ordered/sum(times_ordered)*100,
          product_category = ifelse(product_share <= quantile(product_share, probs = 0.25), "rare_product",
@@ -281,25 +292,32 @@ products_ordered_amount <- purchases %>%
                                   product_share <= quantile(product_share, probs = 0.75), "normal_product",
                                                                                           "common_product")))
 
-customers_category_share <- purchases %>%
+customers_category_share <- purchases_first %>%
   left_join(products_ordered_amount, by = c("product_id", "product_name")) %>%
   filter(product_quantity > 0) %>% # Just in case
   group_by(customer_id) %>%
-  mutate(total_products = n()*sum(product_quantity)) %>%
+  mutate(total_products = sum(product_quantity)) %>%
   group_by(customer_id, product_category) %>%
-  summarize(share = n()*sum(product_quantity)/unique(total_products)) %>%
+  summarize(share = sum(product_quantity)/unique(total_products)) %>%
   ungroup() %>%
   spread(product_category, share) %>%
   replace(is.na(.), 0)
 
-
+# On which time of week and day was the order
+customers_tow_tod <- purchases_first %>%
+  group_by(customer_id) %>%
+  summarize(tow_tod = unique(invoice_tow_tod)) %>%
+  ungroup() %>%
+  mutate(yesno = 1) %>%
+  spread(tow_tod, yesno, fill = 0)
 
 # Join dataframes
 customers <- purchases %>%
   distinct(customer_id) %>%
-  left_join(customers_product_count,    by = "customer_id") %>%
-  left_join(customers_cluster_share,    by = "customer_id") %>%
-  left_join(customers_product_category, by = "customer_id") %>%
+  left_join(customers_product_count,  by = "customer_id") %>%
+  left_join(customers_cluster_share,  by = "customer_id") %>%
+  left_join(customers_category_share, by = "customer_id") %>%
+  left_join(customers_tow_tod,        by = "customer_id") %>%
   replace(is.na(.), 0) %>%
   arrange(customer_id)
 
@@ -309,5 +327,74 @@ customers %>%
   cor() %>%
   corrplot::corrplot()
 
-rm(customers_product_count, customers_cluster_share, )
+rm("customers_product_count", "customers_cluster_share", "products_ordered_amount", "customers_category_share",
+   "customers_tow_tod")
+```
+
+
+
+```{r}
+# Scale dataframe
+customers_scaled <- customers %>%
+  select(-customer_id) %>%
+  scale()
+
+# Calculate distance
+customers_dist <- dist(customers_scaled)
+# Hierarchical clustering
+customers_hclust <- hclust(customers_dist)
+# Dendogramm
+plot(customers_hclust)
+# It looks like a 4 cluster solution
+
+# Total variance explained
+tve <- rep(NA, 15)
+for (k in 2:15) {
+  clk <- kmeans(customers_scaled, k)
+  tve[k] <- 1-clk$tot.withinss/clk$totss
+  }
+plot(tve, type="b")
+# It looks like a 3 or 6 cluster solution
+
+# Indexes
+indexes <- c("ch", "duda", "cindex", "beale")
+results <- vector(mode = "list", length = length(indexes))
+nc <- vector(length = length(indexes))
+for (i in 1:length(indexes)) {
+  results[[i]] <- try(NbClust(customers_scaled, method = "kmeans", index = indexes[i]))
+  nc[i] <- results[[i]]$Best.nc[1]
+  print(paste("Index", indexes[i], "done", sep = " "))
+}
+nc
+# Majority rule: 2 clusters
+
+rm("i", "indexes", "nc", "results", "customers_dist", "customers_hclust", "tve", "clk", "k")
+```
+
+k-means
+```{r}
+customers_kmeans <- kmeans(customers_scaled, centers = 4)
+
+c <- customers %>%
+  select(customer_id) %>%
+  cbind(customers_scaled)
+
+centers <- customers_kmeans$centers
+
+# Plot
+ggplot() + 
+ geom_point(data = c, 
+            aes(x = product_cluster_1, y = product_cluster_2, color = as.factor(customers_kmeans$cluster))) + 
+ geom_point(data = as.data.frame(customers_kmeans$centers), 
+            aes(x = product_cluster_1, y = product_cluster_2, color = "purple")) +
+ geom_point(data = as.data.frame(customers_kmeans$centers), 
+            aes(x = product_cluster_1, y = product_cluster_2, color = "purple"),
+            size = 52, alpha = 0.3, show.legend = FALSE)
+
+# Assign corresponding cluster to the products
+products <- products %>%
+  select(product_id, product_name) %>%
+  mutate(product_cluster = paste("product", "cluster", products_kmeans$cluster, sep = "_"))
+
+rm("p", "centers", "products_scaled", "products_kmeans")
 ```
