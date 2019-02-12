@@ -65,18 +65,18 @@ purchases <- purchases %>%
   mutate(tot_product_price = product_quantity*product_price,
          product_name      = tolower(product_name),
          customer_country  = fct_relabel(customer_country, tolower),
-         invoice_datetime  = dmy_hm(invoice_datetime, tz = "Europe/London"),
-         invoice_date      = date(invoice_datetime),
-         invoice_day       = day(invoice_datetime),
-         invoice_month     = month(invoice_datetime),
-         invoice_year      = year(invoice_datetime),
-         invoice_dow       = wday(invoice_datetime, label = TRUE, abbr = TRUE) %>% 
+         invoice_datetime  = lubridate::dmy_hm(invoice_datetime, tz = "Europe/London"),
+         invoice_date      = lubridate::date(invoice_datetime),
+         invoice_day       = lubridate::day(invoice_datetime),
+         invoice_month     = lubridate::month(invoice_datetime),
+         invoice_year      = lubridate::year(invoice_datetime),
+         invoice_dow       = lubridate::wday(invoice_datetime, label = TRUE, abbr = TRUE) %>% 
                               fct_relabel(tolower),
          invoice_tow       = ifelse(invoice_dow == "sat" | invoice_dow == "sun", "weekend",
                                                                                  "workday"),
          invoice_time      = strftime(invoice_datetime,"%H:%M:%S", tz = "Europe/London") %>%
                               chron::times(),
-         invoice_hour      = hour(invoice_datetime),
+         invoice_hour      = lubridate::hour(invoice_datetime),
          invoice_tod       = ifelse(invoice_hour >= 6  & invoice_hour < 12, "morning",
                              ifelse(invoice_hour >= 12 & invoice_hour < 18, "afternoon",
                              ifelse(invoice_hour >= 18 & invoice_hour < 24, "evening",
@@ -232,7 +232,7 @@ products <- products %>%
   select(product_id, product_name) %>%
   mutate(product_cluster = paste("product", "cluster", products_kmeans$cluster, sep = "_"))
 
-rm("c", "centers", "customers_scaled", "customers_kmeans")
+rm("p", "centers", "products_scaled", "products_kmeans")
 ```
 
 Join with the purchases dataframe
@@ -395,8 +395,20 @@ ggplot() +
 
 # Assign corresponding cluster to the products
 customers <- customers %>%
-  select(customer_id) %>%
   mutate(customer_cluster = paste("customer", "cluster", customers_kmeans$cluster, sep = "_"))
 
-rm("p", "centers", "products_scaled", "products_kmeans")
+rm("c", "centers", "customers_scaled", "customers_kmeans")
+```
+
+
+
+```{r}
+test <- purchases %>%
+  mutate(invoice_type = ifelse(product_quantity > 0, "O", "R")) %>%
+  select(invoice_id, invoice_type, invoice_datetime, invoice_number, product_id, product_name, product_quantity, 
+         product_price, tot_product_price, customer_id)
+
+test %>%
+  group()
+
 ```
