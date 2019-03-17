@@ -2,7 +2,8 @@
 needed_packages <- c("NbClust",
                      "cluster",
                      "corrplot",
-                     "tidyverse")
+                     "tidyverse",
+                     "readxl")
 for (package in needed_packages) {
   if (!require(package, character.only=TRUE)) {install.packages(package, character.only=TRUE)}
   library(package, character.only=TRUE)
@@ -10,10 +11,10 @@ for (package in needed_packages) {
 rm("needed_packages", "package")
 
 # Load dataframe
-purchases <- read.csv("online_retail.csv", sep = ";", dec = ",")
+transactions <- read_excel("online_retail.xlsx")
 
 # Rename variables
-purchases <- purchases %>%
+transactions <- transactions %>%
   rename(invoice_id       = InvoiceNo,
          product_id       = StockCode,
          product_name     = Description,
@@ -23,31 +24,10 @@ purchases <- purchases %>%
          customer_id      = CustomerID,
          customer_country = Country)
 
-# Check for missing values
-apply(purchases, 2, function(x) any(is.na(x)))
-
-# Since we want to cluster customers, we cannot have have purchases without the customer information
-# We can however check if it was present in another row of the same invoice
-invoices_na_customer <- purchases %>%
-  filter(is.na(customer_id)) %>%
-  distinct(invoice_id) %>%
-  pull()
-purchases %>%
-  filter(invoice_id %in% invoices_na_customer,
-         !is.na(customer_id))
-
-# Apparently 3710 invoices do not have the relative customer_id
-# And we cannot derive it in a secure way without risking to ruining the dataset for clusterin
-# Therefore we will simply delete these rows
-purchases <- purchases %>%
-  filter(!is.na(customer_id))
-rm("invoices_na_customer")
-
 # New variables
-purchases <- purchases %>%
-  mutate(tot_product_price = product_quantity*product_price,
+test <- transactions %>%
+  mutate(product_value     = product_quantity*product_price,
          product_name      = tolower(product_name),
-         customer_country  = fct_relabel(customer_country, tolower),
          invoice_datetime  = lubridate::dmy_hm(invoice_datetime, tz = "Europe/London"),
          invoice_date      = lubridate::date(invoice_datetime),
          invoice_day       = lubridate::day(invoice_datetime),
@@ -70,3 +50,5 @@ purchases <- purchases %>%
   group_by(customer_id) %>%
   mutate(invoice_number = dense_rank(invoice_id)) %>%
   ungroup()
+
+# Keep only transactions of one year
