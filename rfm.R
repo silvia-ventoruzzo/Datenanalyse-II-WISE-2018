@@ -5,7 +5,8 @@ needed_packages <- c("tidyverse",
                      "reshape2",
                      "rfm",
                      "cowplot",
-                     "plotly")
+                     "plotly",
+                     "GGally")
 for (package in needed_packages) {
   if (!require(package, character.only=TRUE)) {install.packages(package, character.only=TRUE)}
   library(package, character.only=TRUE)
@@ -62,29 +63,41 @@ rfm_df %>%
 plot_recency <- ggplot(data = rfm_df) +
   geom_boxplot(aes(x = "recency", y = recency), fill = "red",
                outlier.colour = "red", outlier.shape = 1) +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = rel(1.2)),
+        axis.text.x  = element_text(size = rel(1.2)),
+        axis.title.y = element_blank(),
+        axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank())
 
 plot_frequency <- ggplot(data = rfm_df) +
   geom_boxplot(aes(x = "frequency", y = frequency), fill = "blue",
                outlier.colour = "blue", outlier.shape = 1) +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = rel(1.2)),
+        axis.text.x  = element_text(size = rel(1.2)),
+        axis.title.y = element_blank(),
+        axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank())
 
 plot_monetary <- ggplot(data = rfm_df) +
   geom_boxplot(aes(x = "monetary", y = monetary), fill = "darkgreen",
                outlier.colour = "darkgreen", outlier.shape = 1) +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
+  coord_flip() +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = rel(1.2)),
+        axis.text.x  = element_text(size = rel(1.2)),
+        axis.title.y = element_blank(),
+        axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank())
 
 plot_grid(plot_recency, plot_frequency, plot_monetary,
-          labels = NULL, ncol = 3)
+          labels = NULL, nrow = 3)
 
-dev.copy2pdf(file = "../Paper/rfm_values_boxplots.pdf")
-dev.off()
+# dev.copy2pdf(file = "../Paper/rfm_values_boxplots.pdf")
+# dev.off()
 
 # Boxplots rfm scores
 plot_recency <- ggplot(data = rfm_df) +
@@ -102,8 +115,17 @@ plot_monetary <- ggplot(data = rfm_df) +
 plot_grid(plot_recency, plot_frequency, plot_monetary,
           labels = NULL, ncol = 3)
 
-dev.copy2pdf(file = "../Paper/rfm_scores_boxplots.pdf")
-dev.off()
+# dev.copy2pdf(file = "../Paper/rfm_scores_boxplots.pdf")
+# dev.off()
+
+# Scatterplots
+rfm_df %>%
+  select(recency, frequency, monetary) %>%
+  ggpairs() +
+  theme_bw()
+
+# dev.copy2pdf(file = "../Paper/scatterplots.pdf")
+# dev.off()
 
 # 3D Scatterplot
 plot_ly(data = rfm_df,
