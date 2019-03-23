@@ -64,7 +64,7 @@ diff_times = transactions %>%
   arrange(desc(count))
 diff_times = transactions %>%
   filter(invoice_id == 549245) %>%
-  select(invoice_id, invoice_datetime, invoice_date, invoice_time, invoice_tod)
+  dplyr::select(invoice_id, invoice_datetime, invoice_date, invoice_time, invoice_tod)
 
 transactions = transactions %>%
   mutate(invoice_tod = ifelse(invoice_id == "549245", "morning", invoice_tod) %>%
@@ -75,11 +75,13 @@ rm("diff_times")
 ## UNIQUE TRANSACTIONS
 transactions_unique = transactions %>%
   group_by(invoice_id) %>%
-  summarize(customer_id    = unique(customer_id),
-            invoice_date   = unique(invoice_date),
-            invoice_day    = unique(invoice_day),
-            invoice_dow    = unique(invoice_dow),
-            invoice_tod    = unique(invoice_tod),
-            invoice_number = unique(invoice_number),
-            invoice_total  = sum(product_value),
-            invoice_type   = unique(invoice_type))
+  summarize(customer_id       = unique(customer_id),
+            invoice_date      = unique(invoice_date),
+            invoice_day       = unique(invoice_day),
+            invoice_dow       = unique(invoice_dow),
+            invoice_tod       = unique(invoice_tod),
+            invoice_number    = unique(invoice_number),
+            invoice_total     = sum(product_value),
+            invoice_type      = unique(invoice_type),
+            distinct_products = n())
+

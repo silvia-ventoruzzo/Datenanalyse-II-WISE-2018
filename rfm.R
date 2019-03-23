@@ -6,7 +6,8 @@ needed_packages <- c("tidyverse",
                      "rfm",
                      "cowplot",
                      "plotly",
-                     "GGally")
+                     "GGally",
+                     "ggmosaic")
 for (package in needed_packages) {
   if (!require(package, character.only=TRUE)) {install.packages(package, character.only=TRUE)}
   library(package, character.only=TRUE)
@@ -14,7 +15,7 @@ for (package in needed_packages) {
 rm("needed_packages", "package")
 
 # Load scripts and functions
-source("exploratory_data_analysis.R")
+source("dataset_preparation.R")
 Jmisc::sourceAll(file.path(getwd(), "Helpers", fsep="/"))
 
 ## RFM
@@ -23,14 +24,23 @@ rfm_results = rfm::rfm_table_order(data           = transactions_unique,
                                    order_date     = invoice_date,
                                    revenue        = invoice_total,
                                    analysis_date  = as.Date("2011-11-30"),
-                                   recency_bins   = 5,
-                                   frequency_bins = 5,
-                                   monetary_bins  = 5)
+                                   recency_bins   = 4,
+                                   frequency_bins = 4,
+                                   monetary_bins  = 4)
 rfm_df = rfm_results$rfm %>%
   rename(recency   = recency_days,
          frequency = transaction_count,
-         monetary  = amount)
-
+         monetary  = amount) %>%
+  dplyr::mutate(segment = ifelse(rfm_score == 444, "Best customer",
+                   ifelse(rfm_score %in% c(441, 442, 443, 341, 342, 343, 344, 431, 432, 433, 434,
+                                           331, 332, 333, 334), "Loyal customer",
+                   ifelse(rfm_score %in% c(414, 424, 413, 423), "Promising new customer",
+                   ifelse(rfm_score %in% c(144, 143, 134, 133, 244, 243, 234, 233), "Churned best customer",
+                   ifelse(rfm_score %in% c(111, 112, 121, 122, 211, 221, 212, 222), "Lost customer",
+                                                "Average customer"))))) %>%
+                  as.factor() %>%
+                  fct_relevel("Best customer", "Loyal customer", "Promising new customer",
+                              "Churned best customer", "Lost customer", "Average customer"))
 # Max transaction date
 # invoice_date_max = transactions %>%
 #   summarize(max = max(invoice_date)) %>%
@@ -43,96 +53,5 @@ rfm_df = rfm_results$rfm %>%
 #             frequency = n_distinct(invoice_id),
 #             monetary  = sum(tot_product_price))
 
-# Histograms
-rfm::rfm_histograms(rfm_results)
-
-# Recency vs Frequency
-rfm::rfm_rf_plot(rfm_results)
-
-# Recency vs Monetary
-rfm::rfm_rm_plot(rfm_results)
-
-# Descriptive statistics
-rfm_df %>%
-  select(recency, frequency, monetary) %>%
-  descriptive_statistics() %>%
-  xtable::xtable() %>%
-  print(include.rownames = FALSE)
-
-# Boxplots rfm values
-plot_recency <- ggplot(data = rfm_df) +
-  geom_boxplot(aes(x = "recency", y = recency), fill = "red",
-               outlier.colour = "red", outlier.shape = 1) +
-  coord_flip() +
-  theme_bw() +
-  theme(axis.title.x = element_text(size = rel(1.2)),
-        axis.text.x  = element_text(size = rel(1.2)),
-        axis.title.y = element_blank(),
-        axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank())
-
-plot_frequency <- ggplot(data = rfm_df) +
-  geom_boxplot(aes(x = "frequency", y = frequency), fill = "blue",
-               outlier.colour = "blue", outlier.shape = 1) +
-  coord_flip() +
-  theme_bw() +
-  theme(axis.title.x = element_text(size = rel(1.2)),
-        axis.text.x  = element_text(size = rel(1.2)),
-        axis.title.y = element_blank(),
-        axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank())
-
-plot_monetary <- ggplot(data = rfm_df) +
-  geom_boxplot(aes(x = "monetary", y = monetary), fill = "darkgreen",
-               outlier.colour = "darkgreen", outlier.shape = 1) +
-  coord_flip() +
-  theme_bw() +
-  theme(axis.title.x = element_text(size = rel(1.2)),
-        axis.text.x  = element_text(size = rel(1.2)),
-        axis.title.y = element_blank(),
-        axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank())
-
-plot_grid(plot_recency, plot_frequency, plot_monetary,
-          labels = NULL, nrow = 3)
-
-# dev.copy2pdf(file = "../Paper/rfm_values_boxplots.pdf")
-# dev.off()
-
-# Boxplots rfm scores
-plot_recency <- ggplot(data = rfm_df) +
-  geom_boxplot(aes(y = recency_score), fill = "red",
-               outlier.colour = "red", outlier.shape = 1)
-
-plot_frequency <- ggplot(data = rfm_df) +
-  geom_boxplot(aes(y = frequency_score), fill = "blue",
-               outlier.colour = "blue", outlier.shape = 1)
-
-plot_monetary <- ggplot(data = rfm_df) +
-  geom_boxplot(aes(y = monetary_score), fill = "darkgreen",
-               outlier.colour = "darkgreen", outlier.shape = 1)
-
-plot_grid(plot_recency, plot_frequency, plot_monetary,
-          labels = NULL, ncol = 3)
-
-# dev.copy2pdf(file = "../Paper/rfm_scores_boxplots.pdf")
-# dev.off()
-
-# Scatterplots
-rfm_df %>%
-  select(recency, frequency, monetary) %>%
-  ggpairs() +
-  theme_bw()
-
-# dev.copy2pdf(file = "../Paper/scatterplots.pdf")
-# dev.off()
-
-# 3D Scatterplot
-plot_ly(data = rfm_df,
-        x = ~recency,
-        y = ~frequency, 
-        z = ~monetary,
-        type = "scatter3d",
-        mode="markers",
-        size = 1)
+  
 

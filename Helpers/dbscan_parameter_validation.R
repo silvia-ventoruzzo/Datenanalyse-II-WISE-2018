@@ -12,7 +12,7 @@ dbscan_parameter_validation = function(data, minpts, eps, scale = TRUE) {
   
   distance = dist(data_scaled)
   
-  # Getting same distance vectors
+  # Getting same length vectors
   n <- max(length(minpts), length(eps))
   length(minpts) <- n                      
   length(eps) <- n
@@ -43,7 +43,7 @@ dbscan_parameter_validation = function(data, minpts, eps, scale = TRUE) {
       minpts                    = parameters$minpts[i],
       eps                       = parameters$eps[i],
       n_clusters                = max(clusters),
-      noise_points              = sum(clusters == 0),
+      noise_points              = sum(clusters == 0)/nrow(data_scaled),
       silhouette_index          = summary(silhouette)$avg.width,
       silhouette_all_positive   = ifelse(all(summary(silhouette)$clus.avg.width > 0),
                                          TRUE, FALSE)

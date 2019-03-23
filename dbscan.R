@@ -11,8 +11,7 @@ needed_packages <- c("tidyverse",
                      "factoextra",
                      "StatMatch",
                      "ggdendro",
-                     "cluster",
-                     "qpcR")
+                     "cluster")
 for (package in needed_packages) {
   if (!require(package, character.only=TRUE)) {install.packages(package, character.only=TRUE)}
   library(package, character.only=TRUE)
@@ -20,7 +19,7 @@ for (package in needed_packages) {
 rm("needed_packages", "package")
 
 # Load scripts and functions
-source("rfm.R")
+source("exploratory_data_analysis.R")
 Jmisc::sourceAll(file.path(getwd(), "Helpers", fsep="/"))
 
 # Prepare dataframe for clustering
@@ -37,47 +36,80 @@ target_data_scaled = target_data %>%
 
 # FINDING PARAMETERS
 
-# Test different values of k = MinPts
-
+# Test different values of k = MinPts and Eps
 dbscan_parameters = dbscan_parameter_validation(
   data   = target_data_scaled,
-  minpts = seq(40, 60),
-  eps    = seq(0.11, 0.2, by = 0.01),
+  minpts = c(4, 6),
+  eps    = seq(0.05, 0.2, by = 0.01),
+  # minpts = seq(40, 60),
+  # eps    = seq(0.11, 0.2, by = 0.01),
   scale  = FALSE) %>%
   arrange(desc(silhouette_index))
 
-parameters = dbscan_parameters %>%
-  filter(n_clusters > 2)
+dbscan_parameters %>%
+  filter(silhouette_index > 0) %>%
+  dplyr::select(-silhouette_all_positive) %>%
+  mutate(noise_points = noise_points*100) %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
 
-
-
-# Eps
-# k-dist plot
-knndist = dbscan::kNNdist(target_data_scaled, k = 60) %>%
+# k-dist Graph
+knndist = dbscan::kNNdist(target_data_scaled, k = 6) %>%
   as.data.frame()
 
 knndist_ordered = order_to_var(df   = knndist, 
-                               vars  = as.character(seq(40, 60)),
+                               vars  = as.character(seq(4, 6)),
                                desc  = TRUE)
-
-
 ggplot(knndist_ordered) +
-  geom_line(aes(x = order_40, y = `40`, color = "40")) +
-  geom_line(aes(x = order_50, y = `50`, color = "50")) +
-  geom_line(aes(x = order_60, y = `60`, color = "60")) +
-  scale_y_continuous(limits = c(0, 1),
-                     breaks = seq(0, 1, 0.2)) +
+  geom_line(aes(x = order_4, y = `4`, color = "4")) +
+  # geom_line(aes(x = order_5, y = `5`, color = "5")) +
+  geom_line(aes(x = order_6, y = `6`, color = "6")) +
+  scale_y_continuous(limits = c(0, 0.6),
+                     breaks = seq(0, 0.6, 0.1)) +
   theme_bw() +
   labs(x = "Points",
        y = "k-distance",
-       color = "Values of k")
+       color = "Values of k") +
+  theme(axis.title.x = element_text(size = rel(1.2)),
+        axis.text.x  = element_text(size = rel(1.2)),
+        axis.title.y = element_text(size = rel(1.2)),
+        axis.text.y  = element_text(size = rel(1.2)))
 
-minpts = 60
-eps = 0.12
+# dev.copy2pdf(file = "../Paper/kdistgraph.pdf")
+# dev.off()
 
-fpc = fpc::dbscan(target_data_scaled, eps = eps, MinPts = minpts, scale = FALSE)
-dbscan = dbscan::dbscan(target_data_scaled, eps = eps, minPts = minpts)
-all(fpc$cluster == dbscan$cluster)
+# Parameters selected
+
+parameters = dbscan_parameters %>%
+  dplyr::slice(c(1, 7)) %>%
+  dplyr::select(minpts, eps) %>%
+  dplyr::mutate(variation = c("A", "B"))
+
+# VARIATION A
+
+# Clustering
+fpc_A = fpc::dbscan(target_data_scaled, 
+                  eps = parameters %>% dplyr::filter(variation == "A") %>% dplyr::select(eps) %>% t() %>% c(), 
+                  MinPts = parameters %>% dplyr::filter(variation == "A") %>% dplyr::select(minpts)  %>% t() %>% c(), 
+                  scale = FALSE)
+dbscan_A = dbscan::dbscan(target_data_scaled, 
+                        eps = parameters %>% dplyr::filter(variation == "A") %>% dplyr::select(eps) %>% t() %>% c(), 
+                        minPts = parameters %>% dplyr::filter(variation == "A") %>% dplyr::select(minpts) %>% t() %>% c())
+all(fpc_A$cluster == dbscan_A$cluster)
+
+# Silhouette Plot
+silhouette_plot(data = target_data_scaled,
+                parameters = parameters %>%
+                  dplyr::filter(variation == "A") %>%
+                  dplyr::select(-variation) %>%
+                  t() %>% c(),
+                cluster_method = "DBSCAN",
+                scale = FALSE)
+
+# dev.copy2pdf(file = "../Paper/dbscanAsilhouette.pdf")
+# dev.off()
+
+
 fviz_cluster(fpc, target_data, geom = "point") +
   theme_bw()
 
@@ -85,24 +117,54 @@ target_data %>%
   ggpairs(mapping = ggplot2::aes(color = as.factor(fpc$cluster))) +
   theme_bw() 
 
-clustered = rfm_df %>%
-  mutate(cluster_dbscan = as.factor(fpc$cluster))
-
-clustered %>% summarize(count = sum(cluster_dbscan == 0))
-
-########################
-###### K-MEANS #########
-########################
-
-# Find number of clusters
-number_of_clusters(scaled_df   = target_data_scaled,
-                   max         = 15,
-                   plot_breaks = seq(0, 15, by = 1))
+# VARIATION B
 
 # Clustering
-n_clusters = 5
-set.seed(1953647536)
-kmeans = kmeans(target_data_scaled, centers = n_clusters)
+fpc_B = fpc::dbscan(target_data_scaled, 
+                  eps = parameters %>% dplyr::filter(variation == "B") %>% dplyr::select(eps) %>% t() %>% c(), 
+                  MinPts = parameters %>% dplyr::filter(variation == "B") %>% dplyr::select(minpts)  %>% t() %>% c(), 
+                  scale = FALSE)
+dbscan_B = dbscan::dbscan(target_data_scaled, 
+                        eps = parameters %>% dplyr::filter(variation == "B") %>% dplyr::select(eps) %>% t() %>% c(), 
+                        minPts = parameters %>% dplyr::filter(variation == "B") %>% dplyr::select(minpts) %>% t() %>% c())
+all(fpc_B$cluster == dbscan_B$cluster)
 
-clustered = clustered %>%
-  mutate(cluster_kmeans = as.factor(kmeans$cluster))
+# Silhouette Plot
+silhouette_plot(data = target_data_scaled,
+                parameters = parameters %>%
+                  dplyr::filter(variation == "B") %>%
+                  dplyr::select(-variation) %>%
+                  t() %>% c(),
+                cluster_method = "DBSCAN",
+                scale = FALSE)
+
+# dev.copy2pdf(file = "../Paper/dbscanBsilhouette.pdf")
+# dev.off()
+
+# Comparison of variations
+dbscan_clusters = rfm_df %>%
+  dplyr::select(customer_id) %>%
+  dplyr::mutate(cluster_A = fpc_A$cluster,
+                cluster_B = fpc_B$cluster) %>%
+  dplyr::mutate(both_1 = ifelse(cluster_A == 1 & cluster_B == 1, TRUE,
+                         ifelse(cluster_A == 1 | cluster_B == 1, FALSE,
+                                NA)),
+                both_0 = ifelse(cluster_A == 0 & cluster_B == 0, TRUE,
+                                ifelse(cluster_A == 0 | cluster_B == 0, FALSE,
+                                       NA)))
+
+dbscan_clusters %>%
+  summarize(count_1_A = sum(cluster_A == 1),
+            count_1_B = sum(cluster_B == 1),
+            count_1_both = sum(both_1, na.rm = TRUE),
+            count_0_A = sum(cluster_A == 0),
+            count_0_B = sum(cluster_B == 0),
+            count_0_both = sum(both_0, na.rm = TRUE),
+            count_0_1 = sum(cluster_A == 0 & cluster_B == 1),
+            count_0_2 = sum(cluster_A == 0 & cluster_B == 2),
+            count_0_3 = sum(cluster_A == 0 & cluster_B == 3))
+
+# Keep only variation A
+dbscan_clusters = dbscan_clusters %>%
+  dplyr::select(customer_id, cluster_A) %>%
+  dplyr::rename(cluster_dbscan = cluster_A)
