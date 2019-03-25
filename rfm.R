@@ -24,34 +24,79 @@ rfm_results = rfm::rfm_table_order(data           = transactions_unique,
                                    order_date     = invoice_date,
                                    revenue        = invoice_total,
                                    analysis_date  = as.Date("2011-11-30"),
-                                   recency_bins   = 4,
-                                   frequency_bins = 4,
-                                   monetary_bins  = 4)
-rfm_df = rfm_results$rfm %>%
-  rename(recency   = recency_days,
-         frequency = transaction_count,
-         monetary  = amount) %>%
-  dplyr::mutate(segment = ifelse(rfm_score == 444, "Best customer",
-                   ifelse(rfm_score %in% c(441, 442, 443, 341, 342, 343, 344, 431, 432, 433, 434,
-                                           331, 332, 333, 334), "Loyal customer",
-                   ifelse(rfm_score %in% c(414, 424, 413, 423), "Promising new customer",
-                   ifelse(rfm_score %in% c(144, 143, 134, 133, 244, 243, 234, 233), "Churned best customer",
-                   ifelse(rfm_score %in% c(111, 112, 121, 122, 211, 221, 212, 222), "Lost customer",
-                                                "Average customer"))))) %>%
-                  as.factor() %>%
-                  fct_relevel("Best customer", "Loyal customer", "Promising new customer",
-                              "Churned best customer", "Lost customer", "Average customer"))
-# Max transaction date
-# invoice_date_max = transactions %>%
-#   summarize(max = max(invoice_date)) %>%
-#   t() %>%
-#   as.Date()
-# 
-# rfm_values = transactions %>%
-#   group_by(customer_id) %>%
-#   summarize(recency   = invoice_date_max - max(invoice_date),
-#             frequency = n_distinct(invoice_id),
-#             monetary  = sum(tot_product_price))
+                                   recency_bins   = 5,
+                                   frequency_bins = 5,
+                                   monetary_bins  = 5)
 
-  
+# Segments
+rfm_df = rfm_results$rfm %>%
+  dplyr::rename(recency   = recency_days,
+                frequency = transaction_count,
+                monetary  = amount) %>%
+  dplyr::mutate(segment = ifelse(recency_score   %in% seq(4, 5) & 
+                                 frequency_score %in% seq(4, 5) & 
+                                 monetary_score  %in% seq(4, 5),
+                                 "Champions",
+                          ifelse(recency_score   %in% seq(2, 5) & 
+                                 frequency_score %in% seq(3, 5) & 
+                                 monetary_score  %in% seq(3, 5),
+                                 "Loyal customers",
+                          ifelse(recency_score   %in% seq(3, 5) & 
+                                 frequency_score %in% seq(2, 3) & 
+                                 monetary_score  %in% seq(2, 3),
+                                 "Potential loyalists",
+                          ifelse(recency_score   %in% seq(4, 5) & 
+                                 frequency_score %in% seq(1) & 
+                                 monetary_score  %in% seq(1),
+                                 "New customers",
+                          ifelse(recency_score   %in% seq(3, 4) & 
+                                 frequency_score %in% seq(1) & 
+                                 monetary_score  %in% seq(1),
+                                 "Promising",
+                          ifelse(recency_score   %in% seq(2, 3) & 
+                                 frequency_score %in% seq(2, 3) & 
+                                 monetary_score  %in% seq(2, 3),
+                                 "Need attention",
+                          ifelse(recency_score   %in% seq(2, 3) & 
+                                 frequency_score %in% seq(1) & 
+                                 monetary_score  %in% seq(1),
+                                 "About to sleep",
+                          ifelse(recency_score   %in% seq(2) & 
+                                 frequency_score %in% seq(2, 5) & 
+                                 monetary_score  %in% seq(2, 5),
+                                 "At risk",
+                          ifelse(recency_score   %in% seq(1) & 
+                                 frequency_score %in% seq(4, 5) & 
+                                 monetary_score  %in% seq(4, 5),
+                                 "Can't lose them",
+                          ifelse(recency_score   %in% seq(2) & 
+                                 frequency_score %in% seq(2) & 
+                                 monetary_score  %in% seq(2),
+                                 "Hibernating",
+                          ifelse(recency_score   %in% seq(1) & 
+                                 frequency_score %in% seq(1) & 
+                                 monetary_score  %in% seq(1),
+                                 "Lost", NA))))))))))) %>%
+                  as.factor() %>%
+                  fct_relevel("Champions", "Loyal customers", "Potential loyalists", "New customers",
+                              "Promising", "Need attention", "About to sleep", "At risk",
+                              "Can't lose them", "Hibernating", "Lost"))
+
+test = rfm_df %>%
+  filter(is.na(segment)) %>%
+  dplyr::select(recency_score, frequency_score, monetary_score) # TOO MANY MISSING VALUES
+
+# First purchase
+first_purchase = transactions_unique %>%
+  group_by(customer_id) %>%
+  summarize(first_purchase = difftime(as.Date("2011-11-30"), min(invoice_date)) %>%
+                                time_length(unit = "months") %>%
+                                round(1))
+
+# Join
+rfm_df = rfm_df %>%
+  dplyr::inner_join(first_purchase, by = "customer_id")
+
+## REMOVE UNNECESSARY OBJECTS
+rm("first_purchase", "test")
 

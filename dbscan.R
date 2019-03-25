@@ -19,20 +19,16 @@ for (package in needed_packages) {
 rm("needed_packages", "package")
 
 # Load scripts and functions
-source("exploratory_data_analysis.R")
+source("hierarchical_clustering.R")
 Jmisc::sourceAll(file.path(getwd(), "Helpers", fsep="/"))
 
 # Prepare dataframe for clustering
 target_data = rfm_df %>%
-  select(recency, frequency, monetary)
+  dplyr::select(recency, frequency, monetary)
 
 # Scale data
 target_data_scaled = target_data %>%
   scale()
-
-########################
-###### DBSCAN ##########
-########################
 
 # FINDING PARAMETERS
 
@@ -41,8 +37,6 @@ dbscan_parameters = dbscan_parameter_validation(
   data   = target_data_scaled,
   minpts = c(4, 6),
   eps    = seq(0.05, 0.2, by = 0.01),
-  # minpts = seq(40, 60),
-  # eps    = seq(0.11, 0.2, by = 0.01),
   scale  = FALSE) %>%
   arrange(desc(silhouette_index))
 
@@ -61,9 +55,8 @@ knndist_ordered = order_to_var(df   = knndist,
                                vars  = as.character(seq(4, 6)),
                                desc  = TRUE)
 ggplot(knndist_ordered) +
-  geom_line(aes(x = order_4, y = `4`, color = "4")) +
-  # geom_line(aes(x = order_5, y = `5`, color = "5")) +
-  geom_line(aes(x = order_6, y = `6`, color = "6")) +
+  geom_line(aes(x = order_4, y = `4`, color = "4"), size = 1.2) +
+  geom_line(aes(x = order_6, y = `6`, color = "6"), size = 1.2) +
   scale_y_continuous(limits = c(0, 0.6),
                      breaks = seq(0, 0.6, 0.1)) +
   theme_bw() +
@@ -109,13 +102,11 @@ silhouette_plot(data = target_data_scaled,
 # dev.copy2pdf(file = "../Paper/dbscanAsilhouette.pdf")
 # dev.off()
 
-
-fviz_cluster(fpc, target_data, geom = "point") +
+fviz_cluster(fpc_A, target_data, geom = "point") +
   theme_bw()
 
-target_data %>%
-  ggpairs(mapping = ggplot2::aes(color = as.factor(fpc$cluster))) +
-  theme_bw() 
+# dev.copy2pdf(file = "../Paper/dbscanAclustrplot.pdf")
+# dev.off()
 
 # VARIATION B
 
@@ -139,6 +130,12 @@ silhouette_plot(data = target_data_scaled,
                 scale = FALSE)
 
 # dev.copy2pdf(file = "../Paper/dbscanBsilhouette.pdf")
+# dev.off()
+
+fviz_cluster(fpc_B, target_data, geom = "point") +
+  theme_bw()
+
+# dev.copy2pdf(file = "../Paper/dbscanBclustrplot.pdf")
 # dev.off()
 
 # Comparison of variations
@@ -165,6 +162,9 @@ dbscan_clusters %>%
             count_0_3 = sum(cluster_A == 0 & cluster_B == 3))
 
 # Keep only variation A
-dbscan_clusters = dbscan_clusters %>%
-  dplyr::select(customer_id, cluster_A) %>%
-  dplyr::rename(cluster_dbscan = cluster_A)
+rfm_df = rfm_df %>%
+  dplyr::mutate(cluster_dbscan = fpc_A$cluster)
+
+## REMOVE UNNECESSARY OBJECTS
+rm("dbscan_A", "dbscan_B", "dbscan_clusters", "dbscan_parameters", "fpc_A", "fpc_B",
+   "knndist", "knndist_ordered", "parameters")

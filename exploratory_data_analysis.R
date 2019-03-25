@@ -228,14 +228,5 @@ ggplot() +
 # dev.copy2pdf(file = "../Paper/outliers.pdf")
 # dev.off()
 
-## PREPARE DATASET FOR CLUSTERING
-
-# Remove outliers and select variables
-target_data = rfm_df %>%
-  dplyr::filter(outlier_elbow == FALSE) %>%
-  dplyr::select(recency, frequency, monetary)
-
-# Scale data
-target_data_scaled = target_data %>%
-  scale()
-
+## REMOVED UNNECESSARY OBJECTS
+rm("mve", "plot_frequency", "plot_monetary", "plot_recency", "outlier_chisq_cutoff")

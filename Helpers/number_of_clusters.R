@@ -27,9 +27,8 @@ number_of_clusters = function(scaled_df, min = 2, max,
     geom_line(color = "grey") +
     geom_point(color = "red") +
     scale_x_continuous(breaks = plot_breaks) +
-    labs(x     = "number of clusters",
-         y     = "% of tve",
-         title = paste("Plot of total variance explained for k from", min, "to", max, sep = " ")) +
+    labs(x     = "Number of clusters",
+         y     = "% of total variance explained") +
     theme_bw() +
     theme(axis.text.x = element_text(size = rel(1.2)),
           axis.text.y = element_text(size = rel(1.2)),
