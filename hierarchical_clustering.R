@@ -115,6 +115,9 @@ hclust_clusters %>%
 rfm_df = rfm_df %>%
   dplyr::mutate(cluster_hclust = ifelse(outlier_elbow, NA, hier_clust_A))
 
+# Silhouette Index
+hclust_silhouette = silhouette_A
+
 ## REMOVE UNNECESSARY OBJECTS
 rm("dend", "dend_data", "hclust", "hclust_clusters", "stats_A", "stats_B",
    "stats_hclust", "distance", "hier_clust_A", "hier_clust_B",

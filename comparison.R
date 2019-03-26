@@ -22,7 +22,7 @@ rm("needed_packages", "package")
 source("dbscan.R")
 Jmisc::sourceAll(file.path(getwd(), "Helpers", fsep="/"))
 
-# Compare composition of clusters
+# Size of clusters
 summary(as.factor(rfm_df$cluster_kmeans))
 #   1    2    3    4    NA's 
 #  453 1101 2706   51   20 
@@ -35,13 +35,104 @@ summary(as.factor(rfm_df$cluster_dbscan))
 #  0    1    2 
 # 183 4127   21 
 
-rfm_df %>%
-  group_by(cluster_kmeans, cluster_hclust, cluster_dbscan) %>%
-  summarize(count = n()) %>%
-  arrange(desc(count))
+# Silhouette Indexes
+summary(kmeans_silhouette)$avg.width # 0.5443226
+summary(hclust_silhouette)$avg.width # 0.9656451
+summary(dbscan_silhouette)$avg.width # 0.5095059
 
 # Compare Chi-Square outliers with DBSCAN outliers
 rfm_df %>%
   summarize(outliers_chisq  = sum(outlier_chisq),
             outliers_dbscan = sum(cluster_dbscan == 0),
             dbscan_chisq    = count_noise/count_outliers)
+
+# Compare sizes of clusters
+rfm_df %>%
+  group_by(cluster_kmeans, cluster_hclust, cluster_dbscan) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count)) %>%
+  replace(is.na(.), 0)
+
+# Compare hclust and dbscan biggest cluster
+rfm_df %>%
+  group_by(cluster_hclust, cluster_dbscan) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count)) %>%
+  replace(is.na(.), 0)
+
+rfm_df %>%
+  dplyr::filter(cluster_hclust == 1 & cluster_dbscan == 1) %>%
+  dplyr::select(recency, frequency, monetary) %>%
+  descriptive_statistics() %>%
+  xtable::xtable() %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+
+# Biggest cluster of all
+rfm_df %>%
+  dplyr::filter(cluster_kmeans == 3 & cluster_hclust == 1 & cluster_dbscan == 1) %>%
+  dplyr::group_by(segment) %>%
+  dplyr::summarize(count = n()) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(sum  = sum(count),
+                perc = count/sum) %>%
+  dplyr::select(segment, perc) %>%
+  dplyr::arrange(desc(perc))
+
+rfm_df %>%
+  dplyr::filter(cluster_kmeans == 3 & cluster_hclust == 1 & cluster_dbscan == 1) %>%
+  dplyr::select(recency, frequency, monetary) %>%
+  descriptive_statistics() %>%
+  xtable::xtable() %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+
+## ANALYZE K-MEANS CLUSTERS
+
+# Frequencies
+rfm_df %>%
+  dplyr::filter(!is.na(cluster_kmeans)) %>%
+  dplyr::group_by(cluster_kmeans) %>%
+  summarize(count = n(),
+            perc  = count/nrow(rfm_df)*100) %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+
+# Outliers
+rfm_df %>%
+  dplyr::filter(!is.na(cluster_kmeans),
+                outlier_chisq) %>%
+  dplyr::group_by(cluster_kmeans, outlier_chisq) %>%
+  dplyr::summarize(count = n())
+
+# Descriptive statistics
+rfm_df %>%
+  dplyr::filter(cluster_kmeans == 1) %>%
+  dplyr::select(recency, frequency, monetary, first_purchase) %>%
+  descriptive_statistics() %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+rfm_df %>%
+  dplyr::filter(cluster_kmeans == 2) %>%
+  dplyr::select(recency, frequency, monetary, first_purchase) %>%
+  descriptive_statistics() %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+rfm_df %>%
+  dplyr::filter(cluster_kmeans == 3) %>%
+  dplyr::select(recency, frequency, monetary, first_purchase) %>%
+  descriptive_statistics() %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+rfm_df %>%
+  dplyr::filter(cluster_kmeans == 4) %>%
+  dplyr::select(recency, frequency, monetary, first_purchase) %>%
+  descriptive_statistics() %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+
+# Contingency table with segments
+rfm_df %>%
+  dplyr::filter(is.na(cluster_kmeans)) %>%
+  dplyr::filter(cluster_kmeans, segment) %>%
+  table()

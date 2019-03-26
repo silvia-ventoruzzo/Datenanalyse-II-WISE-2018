@@ -5,7 +5,8 @@ needed_packages <- c("tidyverse",
                      "xtable",
                      "Jmisc",
                      "mvoutlier",
-                     "MASS")
+                     "MASS",
+                     "scagnostics")
 for (package in needed_packages) {
   if (!require(package, character.only=TRUE)) {install.packages(package, character.only=TRUE)}
   library(package, character.only=TRUE)
@@ -74,13 +75,6 @@ transactions_unique %>%
 # dev.off()
 
 ## RFM MODEL
-# Descriptive statistics
-rfm_df %>%
-  dplyr::select(recency, frequency, monetary) %>%
-  descriptive_statistics() %>%
-  xtable::xtable() %>%
-  print(include.rownames = FALSE)
-
 # Boxplots rfm values
 plot_recency <- ggplot(data = rfm_df) +
   geom_boxplot(aes(x = "recency", y = recency), fill = "red",
@@ -133,17 +127,17 @@ rfm_df %>%
 # dev.off()
 
 # Mosaic plot of RFM Scores
-mosaicplot(table(target_data))
-
+# mosaicplot(table(data))
 
 # Distribution of Segments
 ggplot(rfm_df) +
-  geom_bar(aes(x = gsub(" ", "\n", segment), y = (..count..)/sum(..count..)), fill = "blue") +
+  geom_bar(aes(x = segment, y = (..count..)/sum(..count..)), fill = rainbow(12)) +
   theme_bw() +
   labs(x = "Segment",
        y = "Percentage of customers") +
   theme(axis.title.x = element_text(size = rel(1.2)),
-        axis.text.x  = element_text(size = rel(1.2)),
+        axis.text.x  = element_text(size = rel(1.2),
+                                    angle = 45, vjust = 0.6),
         axis.title.y = element_text(size = rel(1.2)),
         axis.text.y  = element_text(size = rel(1.2)))
 
@@ -159,8 +153,16 @@ ggplot(rfm_df) +
   labs(x = "Recency Score",
        y = "Frequency Score")
 
+# Heat map
+rfm_heatmap(rfm_results, brewer_n = 9, brewer_name = "RdYlGn") +
+  theme_bw()
 
 ## OUTLIERS
+scagnostics = rfm_df %>%
+  dplyr::select(recency, frequency, monetary) %>%
+  scale() %>%
+  scagnostics()
+
 
 # MVE estimators of centroid and covariance matrix
 set.seed(784353765)
@@ -228,5 +230,15 @@ ggplot() +
 # dev.copy2pdf(file = "../Paper/outliers.pdf")
 # dev.off()
 
+# Descriptive statistics
+rfm_df %>%
+  dplyr::filter(outlier_elbow == FALSE) %>%
+  dplyr::select(recency, frequency, monetary) %>%
+  descriptive_statistics() %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+
+
+
 ## REMOVED UNNECESSARY OBJECTS
-rm("mve", "plot_frequency", "plot_monetary", "plot_recency", "outlier_chisq_cutoff")
+rm("mve", "plot_frequency", "plot_monetary", "plot_recency", "outlier_chisq_cutoff", "scagnostics")

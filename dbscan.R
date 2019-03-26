@@ -44,7 +44,7 @@ dbscan_parameters %>%
   filter(silhouette_index > 0) %>%
   dplyr::select(-silhouette_all_positive) %>%
   mutate(noise_points = noise_points*100) %>%
-  xtable::xtable() %>%
+  xtable::xtable(digits = c(0, 0, 2, 0, 2, 3)) %>%
   print(include.rownames = FALSE)
 
 # k-dist Graph
@@ -66,7 +66,8 @@ ggplot(knndist_ordered) +
   theme(axis.title.x = element_text(size = rel(1.2)),
         axis.text.x  = element_text(size = rel(1.2)),
         axis.title.y = element_text(size = rel(1.2)),
-        axis.text.y  = element_text(size = rel(1.2)))
+        axis.text.y  = element_text(size = rel(1.2)),
+        legend.position = "bottom")
 
 # dev.copy2pdf(file = "../Paper/kdistgraph.pdf")
 # dev.off()
@@ -164,6 +165,22 @@ dbscan_clusters %>%
 # Keep only variation A
 rfm_df = rfm_df %>%
   dplyr::mutate(cluster_dbscan = fpc_A$cluster)
+
+# Plot clusters
+fviz_cluster(object = fpc_A, data = target_data_scaled,
+             geom = "point", main = "", shape = 19) +
+  theme(axis.title.x = element_text(size = rel(1.2)),
+        axis.text.x  = element_text(size = rel(1.2)),
+        axis.title.y = element_text(size = rel(1.2)),
+        axis.text.y  = element_text(size = rel(1.2)),
+        legend.position = "bottom")
+
+# dev.copy2pdf(file = "../Paper/dbscanclusterscaled.pdf")
+# dev.off()
+
+# Silhouette Index
+dbscan_silhouette = cluster::silhouette(x    = fpc_A$cluster,
+                                        dist = dist(target_data_scaled))
 
 ## REMOVE UNNECESSARY OBJECTS
 rm("dbscan_A", "dbscan_B", "dbscan_clusters", "dbscan_parameters", "fpc_A", "fpc_B",

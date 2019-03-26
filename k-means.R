@@ -53,7 +53,7 @@ plot_sil = kmeans_parameter_validation(data = target_data_scaled,
                                        iter_max = 10, plot_breaks = seq(2, 15, 2))
 
 plot_sil +
-  geom_point(aes(x = 4, y = 0.544), size = 5, shape = 1, color="gold4")
+  geom_point(aes(x = 4, y = 0.545), size = 5, shape = 1, color="gold4")
 
 # dev.copy2pdf(file = "../Paper/kmeanssilhouette.pdf")
 # dev.off()
@@ -66,40 +66,22 @@ kmeans = kmeans(target_data_scaled, centers = n_clusters)
 rfm_df = rfm_df %>%
   dplyr::mutate(cluster_kmeans = ifelse(outlier_elbow, NA, kmeans$cluster))
 
-# Analyze cluster structure
-rfm_df %>%
-  dplyr::filter(!is.na(cluster_kmeans)) %>%
-  dplyr::group_by(cluster_kmeans) %>%
-  summarize(count = n(),
-            perc  = count/nrow(rfm_df)*100) %>%
-  xtable::xtable() %>%
-  print(include.rownames = FALSE)
+# Plot clusters
+fviz_cluster(object = kmeans, data = target_data_scaled,
+             geom = "point", main = "", shape = 19) +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = rel(1.2)),
+        axis.text.x  = element_text(size = rel(1.2)),
+        axis.title.y = element_text(size = rel(1.2)),
+        axis.text.y  = element_text(size = rel(1.2)),
+        legend.position = "bottom") 
+  
+# dev.copy2pdf(file = "../Paper/kmeansclusterscaled.pdf")
+# dev.off()
 
-rfm_df %>%
-  dplyr::filter(cluster_kmeans == 1) %>%
-  dplyr::select(recency, frequency, monetary, first_purchase) %>%
-  descriptive_statistics() %>%
-  xtable::xtable() %>%
-  print(include.rownames = FALSE)
-rfm_df %>%
-  dplyr::filter(cluster_kmeans == 2) %>%
-  dplyr::select(recency, frequency, monetary, first_purchase) %>%
-  descriptive_statistics() %>%
-  xtable::xtable() %>%
-  print(include.rownames = FALSE)
-rfm_df %>%
-  dplyr::filter(cluster_kmeans == 3) %>%
-  dplyr::select(recency, frequency, monetary, first_purchase) %>%
-  descriptive_statistics() %>%
-  xtable::xtable() %>%
-  print(include.rownames = FALSE)
-rfm_df %>%
-  dplyr::filter(cluster_kmeans == 4) %>%
-  dplyr::select(recency, frequency, monetary, first_purchase) %>%
-  descriptive_statistics() %>%
-  xtable::xtable() %>%
-  print(include.rownames = FALSE)
-
+# Silhouette index
+kmeans_silhouette = cluster::silhouette(x    = kmeans$cluster,
+                                        dist = dist(target_data_scaled))
 
 ## REMOVE UNNECESSARY OBJECTS
 rm("kmeans", "plot_elbow", "plot_sil", "n_clusters")

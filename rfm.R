@@ -37,54 +37,68 @@ rfm_df = rfm_results$rfm %>%
                                  frequency_score %in% seq(4, 5) & 
                                  monetary_score  %in% seq(4, 5),
                                  "Champions",
-                          ifelse(recency_score   %in% seq(2, 5) & 
+                          ifelse(recency_score   %in% seq(3, 5) & 
                                  frequency_score %in% seq(3, 5) & 
-                                 monetary_score  %in% seq(3, 5),
+                                 monetary_score  %in% seq(3, 5) &
+                                 !(recency_score   == 3 & 
+                                   frequency_score == 3 & 
+                                   monetary_score  == 3),
                                  "Loyal customers",
                           ifelse(recency_score   %in% seq(3, 5) & 
-                                 frequency_score %in% seq(2, 3) & 
-                                 monetary_score  %in% seq(2, 3),
+                                 frequency_score %in% seq(1, 3) & 
+                                 monetary_score  %in% seq(1, 3) &
+                                 !(recency_score   == 3 & 
+                                   frequency_score == 3 & 
+                                   monetary_score  == 3) &
+                                 !(recency_score   %in% seq(3, 4) & 
+                                   frequency_score == 1 & 
+                                   monetary_score  == 1),
                                  "Potential loyalists",
                           ifelse(recency_score   %in% seq(4, 5) & 
-                                 frequency_score %in% seq(1) & 
-                                 monetary_score  %in% seq(1),
+                                 frequency_score == 1 & 
+                                 monetary_score  %in% seq(1, 5),
                                  "New customers",
                           ifelse(recency_score   %in% seq(3, 4) & 
-                                 frequency_score %in% seq(1) & 
-                                 monetary_score  %in% seq(1),
+                                 frequency_score == 1 & 
+                                 monetary_score  %in% seq(1, 2),
                                  "Promising",
                           ifelse(recency_score   %in% seq(2, 3) & 
                                  frequency_score %in% seq(2, 3) & 
-                                 monetary_score  %in% seq(2, 3),
+                                 monetary_score  %in% seq(2, 3) &
+                                 !(recency_score   == 2 & 
+                                   frequency_score == 2 & 
+                                   monetary_score  == 2),
                                  "Need attention",
-                          ifelse(recency_score   %in% seq(2, 3) & 
-                                 frequency_score %in% seq(1) & 
-                                 monetary_score  %in% seq(1),
+                          ifelse(recency_score   == 2 & 
+                                 frequency_score == 2 & 
+                                 monetary_score  == 2,
                                  "About to sleep",
-                          ifelse(recency_score   %in% seq(2) & 
+                          ifelse(recency_score   %in% seq(1, 2) & 
                                  frequency_score %in% seq(2, 5) & 
-                                 monetary_score  %in% seq(2, 5),
-                                 "At risk",
-                          ifelse(recency_score   %in% seq(1) & 
-                                 frequency_score %in% seq(4, 5) & 
-                                 monetary_score  %in% seq(4, 5),
+                                 monetary_score  %in% seq(2, 5) &
+                                 !(recency_score   %in% seq(1, 2) & 
+                                   frequency_score == 5 & 
+                                   monetary_score  == 5),
+                                "At risk",
+                          ifelse(recency_score   %in% seq(1, 2) & 
+                                 frequency_score == 5 & 
+                                 monetary_score  == 5,
                                  "Can't lose them",
-                          ifelse(recency_score   %in% seq(2) & 
-                                 frequency_score %in% seq(2) & 
-                                 monetary_score  %in% seq(2),
+                          ifelse(recency_score   %in% seq(1, 2) & 
+                                 frequency_score %in% seq(1, 2) & 
+                                 monetary_score  %in% seq(1, 2) &
+                                 !(recency_score   == 1 & 
+                                   frequency_score == 1 & 
+                                   monetary_score  == 1),
                                  "Hibernating",
-                          ifelse(recency_score   %in% seq(1) & 
-                                 frequency_score %in% seq(1) & 
-                                 monetary_score  %in% seq(1),
-                                 "Lost", NA))))))))))) %>%
+                          ifelse(recency_score   == 1 & 
+                                 frequency_score == 1 & 
+                                 monetary_score  == 1,
+                                 "Lost", "Average customers"))))))))))) %>%
                   as.factor() %>%
                   fct_relevel("Champions", "Loyal customers", "Potential loyalists", "New customers",
                               "Promising", "Need attention", "About to sleep", "At risk",
-                              "Can't lose them", "Hibernating", "Lost"))
-
-test = rfm_df %>%
-  filter(is.na(segment)) %>%
-  dplyr::select(recency_score, frequency_score, monetary_score) # TOO MANY MISSING VALUES
+                              "Can't lose them", "Hibernating", "Lost", "Average customers"))
 
 # First purchase
 first_purchase = transactions_unique %>%
