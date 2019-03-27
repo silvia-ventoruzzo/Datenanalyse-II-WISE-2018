@@ -9,6 +9,9 @@ for (package in needed_packages) {
 rm("needed_packages", "package")
 
 # Load dataframe
+unzip(zipfile = file.path(getwd(), "Data", "online_retail.xlsx.zip", fsep="/"),
+      files   = "online_retail.xlsx",
+      exdir   = ".")
 transactions <- read_excel("online_retail.xlsx")
 
 # Rename variables
@@ -26,7 +29,6 @@ transactions <- transactions %>%
 transactions <- transactions %>%
   mutate(product_value     = product_quantity*product_price,
          product_name      = tolower(product_name),
-         # invoice_datetime  = lubridate::dmy_hm(invoice_datetime, tz = "Europe/London"),
          invoice_type      = ifelse(product_quantity < 0, "cancellation", "order"),
          invoice_date      = lubridate::date(invoice_datetime),
          invoice_day       = lubridate::day(invoice_datetime),
@@ -70,8 +72,6 @@ transactions = transactions %>%
   mutate(invoice_tod = ifelse(invoice_id == "549245", "morning", invoice_tod) %>%
            factor(levels = c("morning", "afternoon", "evening", "night")))
 
-rm("diff_times")
-
 ## UNIQUE TRANSACTIONS
 transactions_unique = transactions %>%
   group_by(invoice_id) %>%
@@ -85,3 +85,5 @@ transactions_unique = transactions %>%
             invoice_type      = unique(invoice_type),
             distinct_products = n())
 
+## REMOVE UNNECESSARY OBJECTS
+rm("diff_times")

@@ -36,7 +36,11 @@ transactions_unique %>%
   labs(x    = "Day of the week",
        y    = "Percentage of transactions",
        fill = "Invoice type") +
-  theme(legend.position = "bottom")
+  theme(axis.title.x    = element_text(size = rel(1.2)),
+        axis.text.x     = element_text(size = rel(1.2)),
+        axis.title.y    = element_text(size = rel(1.2)),
+        axis.text.y     = element_text(size = rel(1.2)),
+        legend.position = "bottom")
 
 # dev.copy2pdf(file = "../Paper/transactions_week.pdf")
 # dev.off()
@@ -51,7 +55,11 @@ transactions_unique %>%
   labs(x    = "Time of the day",
        y    = "Percentage of transactions",
        fill = "Invoice type") +
-  theme(legend.position = "bottom")
+  theme(axis.title.x    = element_text(size = rel(1.2)),
+        axis.text.x     = element_text(size = rel(1.2)),
+        axis.title.y    = element_text(size = rel(1.2)),
+        axis.text.y     = element_text(size = rel(1.2)),
+        legend.position = "bottom")
 
 # dev.copy2pdf(file = "../Paper/transactions_day.pdf")
 # dev.off()

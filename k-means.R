@@ -65,6 +65,10 @@ initial_centroids = kmeans_initial_centroids(data  = target_data_scaled,
                                              scale = FALSE,
                                              k     = n_clusters)
 
+initial_centroids %>%
+  t() %>%
+  xtable::xtable()
+
 ## CLUSTERING
 kmeans = kmeans(target_data_scaled, centers = initial_centroids)
 
@@ -87,6 +91,14 @@ fviz_cluster(object = kmeans, data = target_data_scaled,
 # Silhouette index
 kmeans_silhouette = cluster::silhouette(x    = kmeans$cluster,
                                         dist = dist(target_data_scaled))
+
+# Silhouette plot
+fviz_silhouette(kmeans_silhouette) +
+  theme(legend.position = "bottom")
+
+# dev.copy2pdf(file = "../Paper/kmeanssilplot.pdf")
+# dev.off()
+
 
 ## REMOVE UNNECESSARY OBJECTS
 rm("kmeans", "plot_elbow", "plot_sil", "n_clusters", "initial_centroids")
