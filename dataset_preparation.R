@@ -9,10 +9,7 @@ for (package in needed_packages) {
 rm("needed_packages", "package")
 
 # Load dataframe
-# unzip(zipfile = file.path(getwd(), "Data", "online_retail.xlsx.zip", fsep="/"),
-#       files   = "online_retail.xlsx",
-#       exdir   = ".")
-transactions <- read_excel(getwd(), "Data", "online_retail.xlsx", fsep="/"))
+transactions <- read_excel(file.path(getwd(), "Data", "online_retail.xlsx", fsep="/"))
 
 # Rename variables
 transactions <- transactions %>%
