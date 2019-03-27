@@ -25,7 +25,6 @@ transactions_unique %>%
   xtable::xtable() %>%
   print(include.rownames = FALSE)
 
-
 # Distribution of transactions across the week
 transactions_unique %>%
   group_by(invoice_dow, invoice_type) %>%
@@ -134,9 +133,6 @@ rfm_df %>%
 # dev.copy2pdf(file = "../Paper/scatterplots.pdf")
 # dev.off()
 
-# Mosaic plot of RFM Scores
-# mosaicplot(table(data))
-
 # Distribution of Segments
 levels(rfm_df$segment) <- gsub(" ", "\n", levels(rfm_df$segment))
 ggplot(rfm_df) +
@@ -171,7 +167,6 @@ scagnostics = rfm_df %>%
   dplyr::select(recency, frequency, monetary) %>%
   scale() %>%
   scagnostics()
-
 
 # MVE estimators of centroid and covariance matrix
 set.seed(784353765)
@@ -247,8 +242,6 @@ rfm_df %>%
   dplyr::select(-iqr) %>%
   t() %>%
   xtable::xtable()
-
-
 
 ## REMOVED UNNECESSARY OBJECTS
 rm("mve", "plot_frequency", "plot_monetary", "plot_recency", "outlier_chisq_cutoff", "scagnostics")

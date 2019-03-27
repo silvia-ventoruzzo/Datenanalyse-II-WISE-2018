@@ -112,5 +112,4 @@ rfm_df = rfm_df %>%
   dplyr::inner_join(first_purchase, by = "customer_id")
 
 ## REMOVE UNNECESSARY OBJECTS
-rm("first_purchase", "test")
-
+rm("first_purchase")

@@ -73,7 +73,6 @@ ggplot(knndist_ordered) +
 # dev.off()
 
 # Parameters selected
-
 parameters = dbscan_parameters %>%
   dplyr::slice(c(1, 7)) %>%
   dplyr::select(minpts, eps) %>%
@@ -184,4 +183,4 @@ dbscan_silhouette = cluster::silhouette(x    = fpc_A$cluster,
 
 ## REMOVE UNNECESSARY OBJECTS
 rm("dbscan_A", "dbscan_B", "dbscan_clusters", "dbscan_parameters", "fpc_A", "fpc_B",
-   "knndist", "knndist_ordered", "parameters")
+   "knndist", "knndist_ordered", "parameters", "target_data", "target_data_scaled")

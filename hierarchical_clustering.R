@@ -121,4 +121,5 @@ hclust_silhouette = silhouette_A
 ## REMOVE UNNECESSARY OBJECTS
 rm("dend", "dend_data", "hclust", "hclust_clusters", "stats_A", "stats_B",
    "stats_hclust", "distance", "hier_clust_A", "hier_clust_B",
-   "silhouette_A", "silhouette_B")
+   "silhouette_A", "silhouette_B",
+   "target_data", "target_data_scaled")

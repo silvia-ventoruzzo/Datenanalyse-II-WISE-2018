@@ -24,8 +24,8 @@ Jmisc::sourceAll(file.path(getwd(), "Helpers", fsep="/"))
 
 # Size of clusters
 summary(as.factor(rfm_df$cluster_kmeans))
-#   1    2    3    4    NA's 
-#  453 1101 2706   51   20 
+#   1    2    3    4   NA's 
+# 1101 2708  451   51   20 
 
 summary(as.factor(rfm_df$cluster_hclust))
 #   1     2    3  NA's 
@@ -153,5 +153,5 @@ contingency_table %>%
 cluster_tendency = get_clust_tendency(data = rfm_df %>%
                                                 dplyr::select(recency, frequency, monetary) %>%
                                                 scale(),
-                                      n    = 500,
+                                      n    = 1800,
                                       seed = 900114)

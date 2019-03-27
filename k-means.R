@@ -99,6 +99,6 @@ fviz_silhouette(kmeans_silhouette) +
 # dev.copy2pdf(file = "../Paper/kmeanssilplot.pdf")
 # dev.off()
 
-
 ## REMOVE UNNECESSARY OBJECTS
-rm("kmeans", "plot_elbow", "plot_sil", "n_clusters", "initial_centroids")
+rm("kmeans", "plot_elbow", "plot_sil", "n_clusters", "initial_centroids",
+   "target_data", "target_data_scaled")
