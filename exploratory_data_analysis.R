@@ -130,20 +130,21 @@ rfm_df %>%
 # mosaicplot(table(data))
 
 # Distribution of Segments
+levels(rfm_df$segment) <- gsub(" ", "\n", levels(rfm_df$segment))
 ggplot(rfm_df) +
   geom_bar(aes(x = segment, y = (..count..)/sum(..count..)), fill = rainbow(12)) +
   theme_bw() +
   labs(x = "Segment",
        y = "Percentage of customers") +
   theme(axis.title.x = element_text(size = rel(1.2)),
-        axis.text.x  = element_text(size = rel(1.2),
-                                    angle = 45, vjust = 0.6),
+        axis.text.x  = element_text(size = rel(1.2), angle = 90, vjust = 0.5),
         axis.title.y = element_text(size = rel(1.2)),
         axis.text.y  = element_text(size = rel(1.2)))
 
 # dev.copy2pdf(file = "../Paper/segmentdistribution.pdf")
 # dev.off()
 
+levels(rfm_df$segment) <- gsub("\n", " ", levels(rfm_df$segment))
 
 # Mosaic plot of RFM Scores
 ggplot(rfm_df) +
@@ -235,8 +236,9 @@ rfm_df %>%
   dplyr::filter(outlier_elbow == FALSE) %>%
   dplyr::select(recency, frequency, monetary) %>%
   descriptive_statistics() %>%
-  xtable::xtable() %>%
-  print(include.rownames = FALSE)
+  dplyr::select(-iqr) %>%
+  t() %>%
+  xtable::xtable()
 
 
 

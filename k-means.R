@@ -37,9 +37,10 @@ target_data_scaled = target_data %>%
 ## NUMBER OF CLUSTERS
 
 # Elbow method
-plot_elbow = number_of_clusters(scaled_df   = target_data_scaled,
+plot_elbow = number_of_clusters(data        = target_data_scaled,
                                 max         = 15,
-                                plot_breaks = seq(0, 16, by = 2))
+                                plot_breaks = seq(0, 16, by = 2),
+                                scale       = FALSE)
 
 plot_elbow +
   geom_point(aes(x = 4, y = 0.73), size = 5, shape = 1, color="gold4")
@@ -58,10 +59,14 @@ plot_sil +
 # dev.copy2pdf(file = "../Paper/kmeanssilhouette.pdf")
 # dev.off()
 
-# Clustering
+## INITIAL CENTROIDS
 n_clusters = 4
-set.seed(900114)
-kmeans = kmeans(target_data_scaled, centers = n_clusters)
+initial_centroids = kmeans_initial_centroids(data  = target_data_scaled,
+                                             scale = FALSE,
+                                             k     = n_clusters)
+
+## CLUSTERING
+kmeans = kmeans(target_data_scaled, centers = initial_centroids)
 
 rfm_df = rfm_df %>%
   dplyr::mutate(cluster_kmeans = ifelse(outlier_elbow, NA, kmeans$cluster))
@@ -84,4 +89,4 @@ kmeans_silhouette = cluster::silhouette(x    = kmeans$cluster,
                                         dist = dist(target_data_scaled))
 
 ## REMOVE UNNECESSARY OBJECTS
-rm("kmeans", "plot_elbow", "plot_sil", "n_clusters")
+rm("kmeans", "plot_elbow", "plot_sil", "n_clusters", "initial_centroids")

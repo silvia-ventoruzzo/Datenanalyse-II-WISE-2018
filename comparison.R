@@ -132,7 +132,25 @@ rfm_df %>%
   print(include.rownames = FALSE)
 
 # Contingency table with segments
-rfm_df %>%
-  dplyr::filter(is.na(cluster_kmeans)) %>%
-  dplyr::filter(cluster_kmeans, segment) %>%
-  table()
+contingency_table = rfm_df %>%
+  dplyr::filter(!is.na(cluster_kmeans)) %>%
+  dplyr::group_by(cluster_kmeans, segment) %>%
+  dplyr::summarize(count = n()) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(cluster_kmeans) %>%
+  dplyr::mutate(perc = count/sum(count)*100) %>%
+  dplyr::select(-count) %>%
+  tidyr::spread(key = "cluster_kmeans", value = "perc") %>%
+  replace(is.na(.), 0) %>%
+  dplyr::mutate_if(is.numeric, function(x) {round(x, 2) %>% as.character() %>% paste("%", sep = "")})
+
+contingency_table %>%
+  xtable::xtable() %>%
+  print(include.rownames = FALSE)
+
+## CLUSTERING TENDENCY
+cluster_tendency = get_clust_tendency(data = rfm_df %>%
+                                                dplyr::select(recency, frequency, monetary) %>%
+                                                scale(),
+                                      n    = 500,
+                                      seed = 900114)

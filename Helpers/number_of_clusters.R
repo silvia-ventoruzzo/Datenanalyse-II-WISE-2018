@@ -1,10 +1,24 @@
 # Calculate plot of tve to choose number of clusters for k-means clustering
-number_of_clusters = function(scaled_df, min = 2, max,
-                              iter_max = 10, plot_breaks) {
+number_of_clusters = function(data, min = 2, max,
+                              iter_max = 10, plot_breaks,
+                              scale = TRUE) {
+  
+  # Scale data if necessary
+  if (scale) {
+    scaled_data = scale(data)
+  } else {
+    scaled_data = data
+  }
   # Set seed for reproducibility
   set.seed(900114)
   # Values to test
   k_values = min:max
+  # Derive data sample
+  sample = scaled_data[sample(nrow(scaled_data), round(0.25*nrow(scaled_data))), ]
+  # Calculate distance
+  distance = dist(sample)
+  # Perform hierarchical clustering
+  hclust = stats::hclust(distance, method = "average")
   # Empty dataframe for the total variance explained
   tve = data.frame(clusters = k_values,
                    tve      = rep(NA, length(k_values)))
@@ -12,8 +26,17 @@ number_of_clusters = function(scaled_df, min = 2, max,
   clk = list()
   # Loop through the possible values of k
   for (k in k_values) {
-    # Calculate k-means for each k
-    clk[[k-1]] = kmeans(scaled_df, centers = k, iter.max = iter_max)
+    # Extract clusters from hclust
+    clusters = sample %>%
+      as.data.frame() %>%
+      dplyr::mutate(cluster = stats::cutree(hclust, k = k))
+    # Calculate hclust cluster centroids
+    centroids = clusters %>%
+      dplyr::group_by(cluster) %>%
+      dplyr::summarize_all(mean) %>%
+      dplyr::select(-cluster)
+    # Calculate k-means for each k using hclust centroids
+    clk[[k-1]] = kmeans(scaled_data, centers = centroids, iter.max = iter_max)
     # Save the number of clusters
     names(clk)[k-1] = paste(k, "clusters", sep = " ")
     # Calculate percentage of total variance explained
